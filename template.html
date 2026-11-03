@@ -845,7 +845,7 @@ function mutate(fn,msg,attempt){attempt=attempt||0;
 function dispatchRun(){return gh('/actions/workflows/collect.yml/dispatches',{method:'POST',body:JSON.stringify({ref:'main'})})}
 function loadSchedule(){
   var urls=[];if(REPO)urls.push('https://raw.githubusercontent.com/'+REPO.o+'/'+REPO.r+'/main/schedule.json');urls.push('schedule.json');
-  (function next(i){if(i>=urls.length)return;fetch(urls[i]+'?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(function(j){SCH=j;schKey='';renderSchPill();if(S.screen==='sched')renderSched()}).catch(function(){next(i+1)})})(0)}
+  (function next(i){if(i>=urls.length)return;fetch(urls[i]+'?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(function(j){SCH=j;schKey='';renderSchPill();renderBanner();if(S.screen==='sched')renderSched()}).catch(function(){next(i+1)})})(0)}
 function renderSchPill(){var e=evalSched(SCH,Date.now()),p=$('schpill');
   p.textContent=e.act?'Collecting until '+fmtD(e.act.end):(e.nxt?'Starts '+fmtD(e.nxt.start):'Not collecting');
   p.style.background=e.act?'var(--green)':'';p.style.color=e.act?'#10260a':''}
