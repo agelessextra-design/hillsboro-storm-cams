@@ -1,0 +1,931 @@
+<title>Hillsboro Road Cameras</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap">
+<style>
+/* Two screens (Map, Board) share one time bar. Both stay mounted so switching is a cross-fade, not a rebuild. */
+:root{
+  --bg:#eef2f8; --panel:#ffffff; --ink:#0f1d36; --muted:#44546f; --line:#cfd8e6;
+  --head:#002D72; --headink:#ffffff; --blue:#002D72; --green:#64A70B; --greentext:#3b7300;
+  --amber:#b86e00; --gray:#6f7b8f; --red:#c62828; --map:#e7eef8; --city:#f9fbff; --cityline:#7d93b8;
+  --roadh:#6e86ad; --roada:#b3c0d8; --halo:#ffffff; --chip:#e3eaf6; --focus:#0b57d0; --pic:#0b1424; --ice:#1c5fc2; --chipink:#ffffff;
+  --font:'Open Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --u:1;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0a1322; --panel:#12203a; --ink:#e9f0ff; --muted:#a9b8d6; --line:#26385a;
+  --head:#0a1d45; --headink:#ffffff; --blue:#9dbcff; --green:#7fc41f; --greentext:#8ed03a;
+  --amber:#f0b44c; --gray:#8d9bb5; --red:#ff6b6b; --map:#0e1a31; --city:#14233f; --cityline:#4a6290;
+  --roadh:#6c86b5; --roada:#34486d; --halo:#0e1a31; --chip:#1b2c4b; --focus:#8fb4ff; --ice:#7db4ff; --chipink:#0a1322; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0a1322; --panel:#12203a; --ink:#e9f0ff; --muted:#a9b8d6; --line:#26385a;
+  --head:#0a1d45; --headink:#ffffff; --blue:#9dbcff; --green:#7fc41f; --greentext:#8ed03a;
+  --amber:#f0b44c; --gray:#8d9bb5; --red:#ff6b6b; --map:#0e1a31; --city:#14233f; --cityline:#4a6290;
+  --roadh:#6c86b5; --roada:#34486d; --halo:#0e1a31; --chip:#1b2c4b; --focus:#8fb4ff; --ice:#7db4ff; --chipink:#0a1322; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:calc(15px * var(--u));line-height:1.45;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px));}
+body.tv{--u:1.35}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--head);color:var(--headink)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--head);z-index:30}
+.hin{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));}
+.hin h1{font-size:1.2em;margin:0;font-weight:700;letter-spacing:.01em}
+.tabs{display:flex;gap:6px}
+.tab{background:transparent;border:2px solid rgba(255,255,255,.35);color:var(--headink);border-radius:20px;padding:6px 16px;font-weight:600;min-height:40px;transition:background .15s,color .15s}
+.tab:hover{background:rgba(255,255,255,.14)}
+.tab[aria-selected="true"]{background:#fff;color:#002D72;border-color:#fff}
+.hr{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border-radius:14px;padding:4px 10px;font-size:.85em}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block}
+.dot.live{animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.hbtn{background:transparent;border:2px solid rgba(255,255,255,.35);color:var(--headink);border-radius:8px;padding:5px 12px;min-height:38px}
+.hbtn:hover{background:rgba(255,255,255,.14)}
+.hbtn[aria-pressed="true"]{background:#fff;color:#002D72}
+.proto{background:var(--chip);color:var(--ink);font-size:.85em;padding:6px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+.proto b{color:var(--red)}
+main{padding:14px max(16px,env(safe-area-inset-right,0px)) 110px max(16px,env(safe-area-inset-left,0px));max-width:1600px;margin:0 auto}
+[hidden]{display:none!important}
+section[hidden]{display:none!important}
+section.scr{animation:scrin .22s ease-out}
+@keyframes scrin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.mapgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:14px;align-items:start}
+@media(max-width:900px){.mapgrid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+.mapwrap{position:relative;overflow:hidden}
+#map{display:block;width:100%;height:auto;aspect-ratio:1.25/1;max-height:78vh;background:var(--map);touch-action:none;cursor:grab}
+#map.drag{cursor:grabbing}
+.zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-size:1.2em;font-weight:700}
+.zoom button:hover{background:var(--chip)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 14px;border-top:1px solid var(--line);font-size:.85em;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);flex:none;color:#fff;font-size:10px;font-weight:700;line-height:1;font-style:normal}
+.sw.dia{border-radius:2px;transform:rotate(45deg) scale(.85)}
+.sw.red{background:var(--red)}
+.pin{cursor:pointer}
+.pin .body{stroke:var(--panel);stroke-width:2.5;transition:fill .3s}
+.pin:hover .body,.pin:focus .body{stroke:var(--ink);stroke-width:3}
+.pin:focus{outline:none}
+.pin:focus-visible .body{stroke:var(--focus);stroke-width:4}
+.pin .lab{opacity:0;transition:opacity .12s;pointer-events:none}
+.pin:hover .lab,.pin:focus .lab,.pin.sel .lab,#map.labels .pin .lab,.pin.f-none .lab{opacity:1}
+.pin .x{display:none;pointer-events:none}
+.pin.f-none .x{display:block}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pl 1.8s ease-out infinite}
+@keyframes pl{0%{opacity:.7;transform:scale(.7)}100%{opacity:0;transform:scale(2.6)}}
+.f-fresh .body{fill:var(--green)}.f-aging .body{fill:var(--amber)}.f-stale .body{fill:var(--gray)}.f-none .body{fill:var(--red)}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.det{padding:14px}
+.det h2{margin:0 0 2px;font-size:1.1em;line-height:1.3;text-wrap:balance}
+.det .meta{color:var(--muted);font-size:.88em}
+/* Pictures: files are the camera's own 320x240 frame, so 320 CSS px is 1:1 and sharpest. */
+.pic{position:relative;background:var(--pic);border-radius:6px;overflow:hidden;aspect-ratio:4/3;max-width:100%}
+.pic img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
+.pic .no{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:12px;text-align:center;color:#fff;background:repeating-linear-gradient(135deg,#7a1c1c 0 14px,#8c2424 14px 28px);font-size:.9em}
+.pic .no b{font-size:1.1em}
+.pic.none img{display:none}.pic.none .no{display:flex}
+.flash{animation:flash .4s ease-out}
+@keyframes flash{0%{opacity:.25}100%{opacity:1}}
+.age{position:absolute;left:6px;top:6px;background:rgba(0,20,60,.8);color:#fff;border-radius:10px;padding:1px 9px;font-size:.75em;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none}
+.age.fresh{background:#2f6200}.age.aging{background:#8a5200}.age.stale{background:#4b5568}.age.none{background:#8c1d1d}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:10px 0 0;font-size:.88em}
+.kv dt{color:var(--muted)}.kv dd{margin:0;overflow-wrap:anywhere}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;min-height:40px}
+:root[data-theme="dark"] .btn{color:#0a1322}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#0a1322}}
+.btn.alt{background:var(--chip);color:var(--ink)}
+.btn:hover{filter:brightness(1.12)}
+.list{max-height:320px;overflow:auto;padding:4px}
+.row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:6px;padding:7px 10px;min-height:40px}
+.row:hover{background:var(--chip)}
+.row[aria-current="true"]{background:var(--chip);font-weight:600}
+.row .t{flex:1;min-width:0}
+.row .a{font-size:.82em;color:var(--muted);font-variant-numeric:tabular-nums}
+.row .a.none{color:var(--red);font-weight:600}
+/* Board */
+.feat{padding:14px;display:grid;grid-template-columns:minmax(0,640px) minmax(0,1fr);gap:16px;margin-bottom:14px}
+@media(max-width:900px){.feat{grid-template-columns:minmax(0,1fr)}}
+.featinfo{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:420px}
+.featinfo h2{margin:0;font-size:1.25em;line-height:1.25;text-wrap:balance}
+.badge{align-self:flex-start;background:var(--green);color:#10260a;font-weight:700;font-size:.78em;border-radius:10px;padding:2px 10px;letter-spacing:.03em;text-transform:uppercase}
+.minimap{display:block;width:100%;height:auto;background:var(--map);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.minimap:hover{border-color:var(--ink)}
+.cap{font-size:.82em;color:var(--muted)}
+.strip{padding:12px 14px;margin-bottom:14px}
+.strip h3,.gridbar h3{margin:0;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.film{position:relative;display:flex;gap:8px;overflow-x:auto;padding:8px 0;scroll-snap-type:x proximity}
+.fr{flex:none;width:128px;border:2px solid transparent;border-radius:6px;background:transparent;padding:0;scroll-snap-align:start;text-align:left}
+.fr .pic{border-radius:4px}
+.fr span{display:block;font-size:.75em;color:var(--muted);font-variant-numeric:tabular-nums;padding:2px 2px 0}
+.fr:hover{border-color:var(--line)}
+.fr[aria-current="true"]{border-color:var(--green)}
+.fr[aria-current="true"] span{color:var(--ink);font-weight:700}
+.gridbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:0 0 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:var(--panel);border:0;padding:6px 12px;min-height:36px;font-size:.85em;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--blue);color:#fff}
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{color:#0a1322}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"]{color:#0a1322}}
+.grid{--tile:320px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--tile)),calc(var(--tile) * 1.2)));justify-content:center;gap:12px}
+.tile{position:relative;display:flex;flex-direction:column;background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:0;text-align:left;overflow:hidden;min-width:0;contain:layout paint}
+.tile:hover{border-color:var(--blue)}
+.tile[aria-current="true"]{border-color:var(--green);box-shadow:0 0 0 2px var(--green)}
+.tile.isnone{border-color:var(--red)}
+.tile .pic{border-radius:0}
+.tile .cp{display:flex;align-items:center;gap:8px;padding:6px 8px 7px 10px}
+.tile .tt{flex:1;min-width:0;font-size:.88em;font-weight:600;line-height:1.3}
+.tile .tt small{display:block;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.tile .tt small.none{color:var(--red);font-weight:600}
+.tile .mm{flex:none;width:46px;height:46px;border-radius:6px;background:var(--map);border:1px solid var(--line)}
+.tile.newest::after{content:"Newest";position:absolute;right:6px;top:6px;background:var(--green);color:#10260a;font-weight:700;font-size:.72em;border-radius:10px;padding:1px 8px}
+/* Time bar */
+.timebar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--panel);border-top:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.timebar .btn{min-width:44px;padding:8px 12px}
+.sl{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sl input{width:100%;accent-color:var(--blue);height:28px}
+.sl .ends{display:flex;justify-content:space-between;font-size:.78em;color:var(--muted);font-variant-numeric:tabular-nums}
+.timebar select{font:inherit;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:40px}
+.tnow{font-weight:700;font-variant-numeric:tabular-nums;min-width:8.5em}
+.pic.wait .no{background:#3a4660}
+.layers{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 14px;border-top:1px solid var(--line);font-size:.85em}
+.lay{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:4px 14px;min-height:34px;font-size:1em}
+.lay[aria-pressed="true"]{background:var(--blue);color:#fff;border-color:var(--blue)}
+:root[data-theme="dark"] .lay[aria-pressed="true"]{color:#0a1322}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lay[aria-pressed="true"]{color:#0a1322}}
+.chip rect{fill:var(--panel);stroke:var(--gray);stroke-width:1.5}
+.chip text{fill:var(--ink);font-family:var(--font)}
+.chip.r-watch rect{fill:var(--amber);stroke:var(--amber)}
+.chip.r-freeze rect{fill:var(--ice);stroke:var(--ice)}
+.chip.r-watch text,.chip.r-freeze text{fill:var(--chipink)}
+.chipdot{fill:var(--gray);stroke:var(--panel);stroke-width:1}
+.chipdot.r-watch{fill:var(--amber)}.chipdot.r-freeze{fill:var(--ice)}
+.stormgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,430px);gap:14px;align-items:start}
+@media(max-width:900px){.stormgrid{grid-template-columns:minmax(0,1fr)}}
+#smap{display:block;width:100%;height:auto;aspect-ratio:1/1;max-height:80vh;background:var(--map)}
+.stamp{position:absolute;left:10px;top:10px;background:rgba(0,20,60,.84);color:#fff;border-radius:12px;padding:3px 12px;font-size:.85em;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none}
+.stamp.old{background:#8a5200}
+.rleg i{display:inline-block;width:22px;height:12px;border-radius:2px}
+.rleg .note{flex:1 1 100%}
+.wxstat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:10px}
+.big{font-size:1.6em;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.wxstat .cap{margin-top:2px}
+.alertbox{margin-top:12px;padding:8px 12px;border-radius:8px;background:var(--chip);font-size:.9em}
+.alertbox.on{background:var(--ice);color:var(--chipink)}
+.wxhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 6px}
+.wxhead h3{margin:0;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.wxlist{max-height:460px}
+.wxrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+.wxrow:last-child{border-bottom:0}
+.wxrow .wn{font-weight:600;line-height:1.3}
+.wxrow .tmp{text-align:right}
+.risk{font-size:.7em;font-weight:700;border-radius:10px;padding:1px 9px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.risk.freeze{background:var(--ice);color:var(--chipink)}.risk.watch{background:var(--amber);color:var(--chipink)}.risk.ok{background:var(--chip);color:var(--ink)}
+.spark{display:block;width:100%;height:44px;margin-top:6px}
+.spark path{fill:none;stroke:var(--blue);stroke-width:2}.spark line{stroke:var(--ice);stroke-width:1;stroke-dasharray:3 3}
+.loadmask{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);font-weight:600}
+.schgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:900px){.schgrid{grid-template-columns:minmax(0,1fr)}}
+.fs{border:1px solid var(--line);border-radius:8px;margin:0 0 10px;padding:8px 12px 10px;min-width:0}
+.fs legend{font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:0 6px}
+.opt{display:inline-flex;align-items:center;gap:6px;margin:4px 14px 4px 0;font-size:.95em}
+.fs input[type=datetime-local],.fs input[type=number],.opt input[type=text],#sch-conn input[type=password],#sch-conn input[type=text]{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:38px}
+.stbig{font-size:1.5em;font-weight:700;line-height:1.2}
+.stbig.on{color:var(--greentext)}
+.warn{color:var(--red);font-weight:600}
+.win{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.win:last-child{border-bottom:0}
+.win .wt{font-weight:600}
+.win .btn{min-height:36px;padding:5px 12px}
+.tag{font-size:.7em;font-weight:700;border-radius:10px;padding:1px 9px;text-transform:uppercase;letter-spacing:.03em;margin-left:6px;vertical-align:middle}
+.tag.active{background:var(--green);color:#10260a}.tag.upcoming{background:var(--ice);color:var(--chipink)}.tag.ended{background:var(--chip);color:var(--muted)}
+#sch-conn ol{margin:6px 0 10px 1.2em;padding:0}#sch-conn li{margin:3px 0}
+@media(max-width:600px){
+  .hin{gap:6px 12px;padding-top:8px;padding-bottom:8px}.hin h1{font-size:1.02em}
+  .hr .hbtn{display:none}.hr{margin-left:0}
+  .proto{font-size:.76em;padding-top:4px;padding-bottom:4px}
+  main{padding-bottom:120px}
+  .timebar{gap:6px 10px;padding-top:8px}
+  .timebar label{display:none}
+  .timebar .btn,.timebar select{min-height:38px}
+  .tnow{order:4;margin-left:auto;min-width:0}.sl{order:5;flex:1 1 100%}
+  .sl input{height:24px}
+}
+@media (prefers-reduced-motion: reduce){.pulse,.dot.live,.flash,section.scr{animation:none}}
+text{font-family:var(--font)}
+</style>
+
+<header class="top">
+  <div class="hin">
+    <h1>Hillsboro Road Cameras</h1>
+    <div class="tabs" role="tablist" aria-label="Screens">
+      <button class="tab" role="tab" id="tab-map" aria-selected="true">Map</button>
+      <button class="tab" role="tab" id="tab-board" aria-selected="false">Board</button>
+      <button class="tab" role="tab" id="tab-storm" aria-selected="false">Storm</button>
+      <button class="tab" role="tab" id="tab-sched" aria-selected="false">Schedule</button>
+    </div>
+    <div class="hr">
+      <span class="pill"><span class="dot live" id="livedot"></span><span id="modetxt">Replay</span></span>
+      <span class="pill" id="wxpill" hidden></span>
+      <span class="pill" id="schpill"></span>
+      <button class="hbtn" id="b-labels" aria-pressed="false">Show names</button>
+      <button class="hbtn" id="b-tv" aria-pressed="false">TV mode</button>
+    </div>
+  </div>
+</header>
+<div class="proto" id="proto"></div>
+
+<div class="loadmask" id="loading">Loading the latest collection...</div>
+<main>
+  <section id="s-map" class="scr" aria-label="Camera map">
+    <div class="mapgrid">
+      <div class="card">
+        <div class="mapwrap">
+          <svg id="map" role="group" aria-label="Map of camera locations"></svg>
+          <div class="zoom"><button id="z-in" aria-label="Zoom in">+</button><button id="z-out" aria-label="Zoom out">&minus;</button><button id="z-fit" aria-label="Fit all cameras" title="Fit all">&#8962;</button></div>
+        </div>
+        <div class="layers">
+          <button class="lay" id="lay-mtemp" aria-pressed="true">Temperatures</button>
+          <button class="lay" id="lay-mrad" aria-pressed="false">Radar</button>
+          <span class="cap">Chips show air temperature, and pavement temperature after a slash when the station has it.</span>
+        </div>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--green)"></i>Updated within 10 min</span>
+          <span><i class="sw" style="background:var(--amber)"></i>10 to 20 min</span>
+          <span><i class="sw" style="background:var(--gray)"></i>Older</span>
+          <span><i class="sw red">&times;</i>No image</span>
+          <span><i class="sw dia" style="background:var(--green)"></i>City building (approximate)</span>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card det" id="det-map"></div>
+        <div class="card"><div class="list" id="camlist" role="list"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-board" class="scr" aria-label="Image board" hidden>
+    <div class="card feat" id="feat"></div>
+    <div class="card strip"><h3 id="film-h">Last 3 hours</h3><div class="film" id="film"></div><p class="cap" id="film-note" style="margin:0"></p></div>
+    <div class="gridbar">
+      <h3>All cameras</h3>
+      <div class="seg" id="tileseg" role="group" aria-label="Image size">
+        <button type="button" data-t="240" aria-pressed="false">Small</button>
+        <button type="button" data-t="320" aria-pressed="true" title="320 to 385 px wide. Native sharpness, up to 1.2x.">Standard</button>
+        <button type="button" data-t="480" aria-pressed="false" title="480 to 576 px wide. Enlarged 1.5x to 1.8x: easier to read from a distance, softer.">Large</button>
+      </div>
+      <span class="cap">Each image is the camera's whole 320 x 240 picture. TripCheck's title and credit bars are removed so the road fills the frame.</span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+  <section id="s-storm" class="scr" aria-label="Storm tracking" hidden>
+    <div class="stormgrid">
+      <div class="card">
+        <div class="mapwrap">
+          <svg id="smap" role="img" aria-label="Regional map with radar, road temperatures and cameras"></svg>
+          <div class="stamp" id="sstamp"></div>
+        </div>
+        <div class="layers">
+          <button class="lay" id="lay-radar" aria-pressed="true">Radar</button>
+          <button class="lay" id="lay-temps" aria-pressed="true">Temperatures</button>
+          <button class="lay" id="lay-cams" aria-pressed="true">Cameras</button>
+          <span class="seg" id="viewseg" role="group" aria-label="Map area"><button type="button" data-v="region" aria-pressed="true">Region</button><button type="button" data-v="metro" aria-pressed="false">Metro</button><button type="button" data-v="city" aria-pressed="false">Hillsboro</button></span>
+        </div>
+        <div class="legend rleg">
+          <span><b>Radar</b></span>
+          <span><i style="background:#7fd6e8"></i>Very light</span><span><i style="background:#3fb06b"></i>Light</span><span><i style="background:#f2e24a"></i>Moderate</span><span><i style="background:#f29a2e"></i>Heavy</span><span><i style="background:#d6372f"></i>Very heavy</span>
+          <span class="note">Radar shows how much is falling, not whether it is rain or snow. Read it with the temperatures: echoes over a blue chip (32F or colder) are snow or ice, over amber (33 to 36F) is a rain and snow mix risk. Chips show air, and pavement after a slash when the station has it.</span>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card det" id="wx-now"></div>
+        <div class="card">
+          <div class="wxhead"><h3>Road weather stations</h3><span class="seg" id="wxsort" role="group" aria-label="Sort stations"><button type="button" data-s="near" aria-pressed="true">Nearest</button><button type="button" data-s="cold" aria-pressed="false">Coldest</button></span></div>
+          <div class="list wxlist" id="wxlist"></div>
+          <div style="padding:6px 12px 12px"><button class="btn alt" id="wxall"></button><p class="cap" style="margin:8px 0 0">Latest readings from ODOT and National Weather Service stations. Not tied to the time bar. Blue and amber are rules of thumb: pavement can be colder than the air.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="s-sched" class="scr" aria-label="Storm collection schedule" hidden>
+    <div class="schgrid">
+      <div class="side">
+        <div class="card det" id="sch-status"></div>
+        <div class="card det">
+          <h2>Start a storm window</h2>
+          <p class="cap" style="margin:4px 0 10px">Collection runs every 5 minutes inside a window and stops by itself when the window ends. Outside a window nothing runs.</p>
+          <fieldset class="fs"><legend>Start</legend>
+            <label class="opt"><input type="radio" name="sch-when" value="now" checked> Right now</label>
+            <label class="opt"><input type="radio" name="sch-when" value="at"> At a set time (Pacific)</label>
+            <input type="datetime-local" id="sch-at" aria-label="Start date and time, Pacific time" disabled>
+          </fieldset>
+          <fieldset class="fs"><legend>Run for</legend>
+            <div class="seg" id="sch-chips" role="group" aria-label="Quick lengths"><button type="button" data-h="12" aria-pressed="false">12 h</button><button type="button" data-h="24" aria-pressed="false">24 h</button><button type="button" data-h="48" aria-pressed="true">48 h</button><button type="button" data-h="72" aria-pressed="false">72 h</button></div>
+            <label class="opt">or hours <input type="number" id="sch-hours" min="1" max="168" step="1" value="48" style="width:5em"> (1 to 168)</label>
+          </fieldset>
+          <label class="opt" style="display:block;margin:8px 0">Name <input type="text" id="sch-label" maxlength="60" placeholder="Wednesday snow event" style="width:100%;max-width:340px"></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" id="sch-go">Start collecting</button><span class="cap" id="sch-msg" role="status"></span></div>
+          <label class="opt" style="display:block;margin-top:14px"><input type="checkbox" id="sch-watch"> Also take one snapshot an hour when no storm window is open</label>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card det"><h2>Windows</h2><div id="sch-list" class="schlist"></div></div>
+        <div class="card det" id="sch-conn"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="timebar" aria-label="Time controls">
+  <button class="btn" id="b-play" aria-label="Play or pause replay">Play</button>
+  <button class="btn alt" id="b-live" title="Jump to the newest images">Latest</button>
+  <label class="cap" for="sel-speed">Speed</label>
+  <select id="sel-speed"><option value="1">Real time</option><option value="10">10x</option><option value="30">30x</option><option value="60" selected>60x</option><option value="120">120x</option><option value="300">300x</option></select>
+  <div class="sl">
+    <input type="range" id="slider" min="0" max="100" step="1" value="100" aria-label="Time, up to 3 hours back">
+    <div class="ends"><span id="t-start"></span><span id="t-end"></span></div>
+  </div>
+  <div class="tnow" id="t-now"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="citysym" viewBox="0 0 100 100"></symbol></defs></svg>
+
+<script>
+__STORE__
+</script>
+<script>
+var DATA=__DATA__;
+(function(){
+var NS='http://www.w3.org/2000/svg', TZ='America/Los_Angeles', POLL_MS=300000;
+var cams=DATA.cams, byId={}, sites=DATA.sites, geo=DATA.geo, bad=DATA.bad||{};
+cams.forEach(function(c){byId[c.id]=c});
+function $(id){return document.getElementById(id)}
+function el(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e}
+var f1=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',timeZone:TZ}),f2=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:TZ});
+function fmt(ts){return f1.format(ts*1000)}
+function fmtS(ts){return f2.format(ts*1000)}
+function ageTxt(sec){if(sec<60)return 'just now';var m=Math.round(sec/60);if(m<60)return m+' min ago';var h=Math.floor(m/60);return h+' h '+(m%60)+' min ago'}
+function cls(sec){return sec<=600?'fresh':(sec<=1200?'aging':'stale')}
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- data layer: rolling 3 hour memory per camera ---------- */
+var B={min:0,max:0};
+var S={cursor:0,play:false,speed:60,screen:'map',sel:null,follow:true,tv:false,labels:false,tile:320,mapRadar:false,mapTemps:true,l:{radar:true,temps:true,cams:true},sview:'region',wxSort:'near',wxAll:false,checked:0,feed:'none',last:0,loopHold:0};
+var SN={};                       /* snapshot: camera id -> frame shown at the cursor */
+function atLatest(){return S.cursor>=B.max-1}
+function ref(){return atLatest()?Math.max(S.cursor,Date.now()/1000):S.cursor}
+function snapshot(){var s={};for(var i=0;i<cams.length;i++)s[cams[i].id]=Store.at(cams[i].id,S.cursor);s.radar=Store.at('radar',S.cursor);SN=s;return s}
+function newest(){var best=null,bt=-1;for(var i=0;i<cams.length;i++){var f=SN[cams[i].id];if(f&&f[0]>bt){bt=f[0];best=cams[i].id}}return best}
+function kind(id){var f=SN[id];return f?cls(ref()-f[0]):(Store.list(id).length?'stale':'none')}
+function camMax(){var m=0;cams.forEach(function(c){var a=Store.list(c.id);if(a.length&&a[a.length-1][0]>m)m=a[a.length-1][0]});return m}
+function sigOf(){var rf=SN.radar,s=Math.floor(ref()/20)+'|'+(rf?rf[0]:0)+'|';for(var i=0;i<cams.length;i++){var f=SN[cams[i].id];s+=(f?f[0]:0)+','}return s}
+
+/* Add one image. Preloads first so a broken or slow file never reaches the screen. */
+function addFrame(id,ts,src,quiet){
+  var go=function(){
+    var wasLatest=atLatest()||B.max===0;
+    var r=Store.add(id,ts,src);if(!r)return;
+    B=Store.bounds();
+    if(wasLatest)S.cursor=B.max;
+    if(!quiet)schedule();
+  };
+  if(quiet){go();return}
+  var im=new Image();im.onload=go;im.onerror=function(){};im.src=src;
+}
+Store.setOnRemove(function(id,fr){if(/^blob:/.test(fr[1]))try{URL.revokeObjectURL(fr[1])}catch(e){}});
+var DF=DATA.frames||{};Object.keys(DF).forEach(function(id){DF[id].forEach(function(f){addFrame(Number(id),f[0],f[1],true)})});
+var RM={};((DATA.radar&&DATA.radar.frames)||[]).forEach(function(f){addFrame('radar',f[0],f[1],true);RM[f[1]]=f.slice(2)});
+B=Store.bounds();S.cursor=B.max;
+
+/* Check for new images every 5 minutes. The page can only read files published with it, so this
+   reads feed.json next to the page: {"frames":[[cameraId,unixTime,"c/file.jpg"],...]}. */
+function poll(){
+  fetch('feed.json?'+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
+    var first=!S.loaded;S.feed='ok';S.feedAsof=j.asof||0;
+    (j.frames||[]).forEach(function(f){var k=f[0]+':'+f[1];if(known[k])return;known[k]=1;addFrame(f[0],f[1],f[2],first)});
+    if(j.wx){WX=j.wx;buildStations();wxVer++;drawMapChips();sDirty=true}
+    if(j.bad)bad=j.bad;
+    (j.radar||[]).forEach(function(f){var k='r:'+f[0];RM[f[1]]=f.slice(2);if(known[k])return;known[k]=1;addFrame('radar',f[0],f[1],first)});
+    if(first){S.loaded=true;B=Store.bounds();S.cursor=B.max;cams.forEach(function(c){var f=Store.at(c.id,B.max);if(f){var im=new Image();im.src=f[1]}});Store.list('radar').forEach(function(f){var im=new Image();im.src=f[1]})}
+    schedule();
+  }).catch(function(){S.feed='none'}).then(function(){S.checked=Date.now()/1000;$('loading').hidden=true;loadSchedule();renderBanner();schedule()});
+}
+var known={};
+
+/* ---------- projection and shared symbols ---------- */
+var cosl=Math.cos(45.52*Math.PI/180),LON0=-123.02,LAT1=45.58,K=8400;
+function P(lon,lat){return [(lon-LON0)*cosl*K,(LAT1-lat)*K]}
+function pathOf(p,d){return 'M'+p.map(function(z){var u=P(z[0],z[1]);return u[0].toFixed(d)+' '+u[1].toFixed(d)}).join('L')}
+var cityD=geo.city.map(function(r){return pathOf(r,1)+'Z'}).join('');
+var BB;
+(function(){var sym=$('citysym'),a={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
+ geo.city.forEach(function(r){r.forEach(function(p){var z=P(p[0],p[1]);a.x0=Math.min(a.x0,z[0]);a.x1=Math.max(a.x1,z[0]);a.y0=Math.min(a.y0,z[1]);a.y1=Math.max(a.y1,z[1])})});
+ var pad=30;BB=[a.x0-pad,a.y0-pad,a.x1-a.x0+2*pad,a.y1-a.y0+2*pad];
+ sym.setAttribute('viewBox',BB.join(' '));
+ el('path',{d:cityD,fill:'var(--city)',stroke:'var(--cityline)','stroke-width':6,'stroke-linejoin':'round'},sym);
+ geo.roads.filter(function(r){return r.c==='hwy'||/Baseline|Cornell|185th|Brookwood|Cornelius/.test(r.l)}).forEach(function(r){
+   el('path',{d:pathOf(r.p,0),fill:'none',stroke:r.c==='hwy'?'var(--roadh)':'var(--roada)','stroke-width':r.c==='hwy'?9:6},sym)});
+})();
+
+/* ---------- main map ---------- */
+var svg=$('map'),vb,gMark,markers={},vbq=0;
+function buildMap(){
+  el('rect',{x:-2000,y:-2000,width:6000,height:6000,fill:'var(--map)'},svg);
+  el('path',{d:cityD,fill:'var(--city)',stroke:'var(--cityline)','stroke-width':3,'stroke-dasharray':'12 8','stroke-linejoin':'round'},svg);
+  var a0=P(EXT[0],EXT[1]),a1=P(EXT[2],EXT[3]);mapRad=el('image',{x:a0[0],y:a0[1],width:a1[0]-a0[0],height:a1[1]-a0[1],preserveAspectRatio:'none',opacity:.72},svg);mapRad.style.display='none';
+  var gr=el('g',{},svg),gl=el('g',{},svg);
+  ['art','hwy'].forEach(function(c){geo.roads.filter(function(r){return r.c===c}).forEach(function(r){
+    el('path',{d:pathOf(r.p,1),fill:'none',stroke:c==='hwy'?'var(--roadh)':'var(--roada)','stroke-width':c==='hwy'?7:4.5,'stroke-linecap':'round','stroke-linejoin':'round'},gr)})});
+  var want={'US 26':1,'OR 8':1,'Baseline Rd':1,'Cornell Rd':1,'Evergreen Pkwy':1,'Brookwood':1,'Cornelius Pass Rd':1,'185th Ave':1,'Jackson School Rd':1,'Main St':1,'Century Blvd':1},best={};
+  geo.roads.forEach(function(r){if(want[r.l]&&(!best[r.l]||r.p.length>best[r.l].p.length))best[r.l]=r});
+  Object.keys(best).forEach(function(k){var r=best[k],i=Math.floor(r.p.length/2),p0=r.p[Math.max(0,i-1)],p1=r.p[Math.min(r.p.length-1,i)],a=P(p0[0],p0[1]),b=P(p1[0],p1[1]);
+    var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2-6;
+    var t=el('text',{x:mx,y:my,transform:'rotate('+ang.toFixed(1)+' '+mx+' '+my+')','text-anchor':'middle','font-size':14,'font-weight':600,fill:'var(--muted)',stroke:'var(--halo)','stroke-width':4,'paint-order':'stroke'},gl);t.textContent=k});
+  gMark=el('g',{},svg);
+  gWxMap=el('g',{},svg);
+  sites.forEach(function(s){var z=P(s.lon,s.lat),g=el('g',{class:'site'},gMark);g.dataset.x=z[0];g.dataset.y=z[1];
+    el('rect',{x:-9,y:-9,width:18,height:18,rx:2,fill:'var(--green)',stroke:'var(--panel)','stroke-width':2.5,transform:'rotate(45)'},g);
+    var t=el('text',{x:15,y:5,'font-size':15,'font-weight':700,fill:'var(--ink)',stroke:'var(--halo)','stroke-width':4,'paint-order':'stroke'},g);t.textContent=s.n});
+  cams.forEach(function(c){var z=P(c.lon,c.lat),g=el('g',{class:'pin f-none',tabindex:0,role:'button','aria-label':c.n},gMark);g.dataset.x=z[0];g.dataset.y=z[1];
+    var pu=el('circle',{class:'pulse',r:12,fill:'var(--green)',opacity:0},g);pu.style.display='none';
+    el('circle',{class:'body',r:10},g);
+    var x=el('text',{class:'x',x:0,y:5,'text-anchor':'middle','font-size':15,'font-weight':700,fill:'#fff'},g);x.textContent='\u00d7';
+    var t=el('text',{class:'lab',x:15,y:5,'font-size':14,'font-weight':600,fill:'var(--ink)',stroke:'var(--halo)','stroke-width':4,'paint-order':'stroke'},g);t.textContent=c.s;
+    g._pu=pu;g._k='';
+    g.addEventListener('click',function(e){e.stopPropagation();selectCam(c.id)});
+    g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectCam(c.id)}});
+    markers[c.id]=g});
+  drawMapChips();fitView();
+}
+function applyVB(){vbq=0;svg.setAttribute('viewBox',vb.x.toFixed(1)+' '+vb.y.toFixed(1)+' '+vb.w.toFixed(1)+' '+vb.h.toFixed(1));
+  var sc=Math.max(.45,vb.w/1000*1.15).toFixed(3);
+  [gWxMap,gMark].forEach(function(grp){for(var i=0;i<grp.children.length;i++){var g=grp.children[i];g.setAttribute('transform','translate('+g.dataset.x+','+g.dataset.y+') scale('+sc+')')}})}
+function setVB(){if(!vbq)vbq=requestAnimationFrame(applyVB)}
+function fitView(){
+  var xs=[],ys=[];cams.concat(sites).forEach(function(c){var z=P(c.lon,c.lat);xs.push(z[0]);ys.push(z[1])});
+  var x0=Math.min.apply(0,xs),x1=Math.max.apply(0,xs),y0=Math.min.apply(0,ys),y1=Math.max.apply(0,ys);
+  var w=(x1-x0)*1.18+120,h=(y1-y0)*1.18+120;if(w/h<1.25)w=h*1.25;else h=w/1.25;
+  vb={x:(x0+x1)/2-w/2,y:(y0+y1)/2-h/2,w:w,h:h};applyVB()}
+function zoom(f,cx,cy){var nw=Math.max(150,Math.min(2400,vb.w*f)),r=nw/vb.w;
+  if(cx==null){cx=vb.x+vb.w/2;cy=vb.y+vb.h/2}
+  vb={x:cx-(cx-vb.x)*r,y:cy-(cy-vb.y)*r,w:nw,h:vb.h*r};setVB()}
+$('z-in').onclick=function(){zoom(.7)};$('z-out').onclick=function(){zoom(1.4)};$('z-fit').onclick=fitView;
+svg.addEventListener('wheel',function(e){e.preventDefault();var r=svg.getBoundingClientRect();zoom(e.deltaY>0?1.15:.87,vb.x+(e.clientX-r.left)/r.width*vb.w,vb.y+(e.clientY-r.top)/r.height*vb.h)},{passive:false});
+var drag=null;
+svg.addEventListener('pointerdown',function(e){if(e.target.closest&&e.target.closest('.pin'))return;drag={x:e.clientX,y:e.clientY,vx:vb.x,vy:vb.y};svg.classList.add('drag');svg.setPointerCapture(e.pointerId)});
+svg.addEventListener('pointermove',function(e){if(!drag)return;var r=svg.getBoundingClientRect();vb.x=drag.vx-(e.clientX-drag.x)/r.width*vb.w;vb.y=drag.vy-(e.clientY-drag.y)/r.height*vb.h;setVB()});
+svg.addEventListener('pointerup',function(){drag=null;svg.classList.remove('drag')});
+
+
+/* ---------- weather: road stations, airport trend, radar ---------- */
+var WX=DATA.wx||{stations:[],khio:[],alerts:null},RG=DATA.region||null,stations=[],wxVer=0,sDirty=true;
+function buildStations(){
+  stations=(WX.stations||[]).slice();var k=WX.khio||[];
+  if(k.length){var l=k[k.length-1];stations.push({id:'KHIO',n:'Hillsboro Airport (NWS)',lat:45.5404,lon:-122.9498,air:l[1],road:null,dew:l[2],hum:null,wind:l[3],dir:'',gust:null,vis:'',upd:l[0],mi:Math.round(dist(45.52261,-122.98963,45.5404,-122.9498)*10)/10})}
+  stations.sort(function(a,b){return a.mi-b.mi});
+}
+buildStations();
+function risk(s){var a=s.air,r=s.road;
+  if((r!=null&&r<=32)||(a!=null&&a<=32))return 'freeze';
+  if((r!=null&&r<=35)||(a!=null&&a<=36))return 'watch';
+  return 'ok'}
+var RTXT={freeze:'Freezing',watch:'Watch',ok:'Above freezing'},RORD={freeze:0,watch:1,ok:2};
+function tF(v){return v==null?'--':Math.round(v)+'\u00b0'}
+function stAge(s){return s.upd?Date.now()/1000-s.upd:null}
+function stWhen(s){var a=stAge(s);return s.upd?fmt(s.upd)+(a>=0?' ('+ageTxt(a)+')':''):'time not reported'}
+function nearestWx(c,needRoad){var b=null,bd=1e9;stations.forEach(function(s){if(needRoad?s.road==null:s.air==null)return;var d=dist(c.lat,c.lon,s.lat,s.lon);if(d<bd){bd=d;b=s}});return b?{s:b,d:bd}:null}
+function wxText(c){var a=nearestWx(c,false),r=nearestWx(c,true),o=[];
+  if(a)o.push('Air '+tF(a.s.air)+'F at '+a.s.n+', '+a.d.toFixed(1)+' mi');
+  if(r)o.push('Pavement '+tF(r.s.road)+'F at '+r.s.n+', '+r.d.toFixed(1)+' mi');
+  return o.length?o.join('. ')+'.':'No station reporting nearby.'}
+function khioTrend(){var k=WX.khio||[];if(k.length<3)return null;var n=k.length,sx=0,sy=0,sxx=0,sxy=0,t0=k[0][0];
+  k.forEach(function(o){var x=(o[0]-t0)/3600,y=o[1];sx+=x;sy+=y;sxx+=x*x;sxy+=x*y});
+  var d=n*sxx-sx*sx;if(!d)return null;var m=(n*sxy-sx*sy)/d,l=k[n-1];
+  return {rate:m,now:l[1],dew:l[2],wind:l[3],desc:l[4],ts:l[0]}}
+function trendTxt(tr){if(!tr)return '';var r=tr.rate;if(Math.abs(r)<.5)return 'steady';return (r<0?'falling ':'rising ')+Math.abs(r).toFixed(1)+'\u00b0F per hour'}
+function freezeEta(tr){if(!tr||tr.rate>-.5||tr.now<=32)return '';var h=(tr.now-32)/-tr.rate;if(h>12)return '';return 'At this rate it reaches 32\u00b0F in about '+(h<1.5?Math.round(h*60)+' min':h.toFixed(1)+' h')+'.'}
+function renderWxPill(){var p=$('wxpill'),tr=khioTrend();if(!tr){p.hidden=true;return}p.hidden=false;p.textContent='Airport '+tF(tr.now)+'F, '+trendTxt(tr)}
+function dbzWord(d){return d<20?'very light':(d<30?'light':(d<40?'moderate':(d<50?'heavy':'very heavy')))}
+function chipNode(s,fs){var g=document.createElementNS(NS,'g');g.setAttribute('class','chip r-'+risk(s));
+  var both=s.road!=null&&s.air!=null,txt=both?tF(s.air)+'/'+tF(s.road):(s.air==null?'P '+tF(s.road):tF(s.air)),w=(both?60:(s.air==null?48:36))*fs,h=21*fs;
+  el('rect',{x:-w/2,y:-h/2,width:w,height:h,rx:5*fs},g);
+  var tx=el('text',{x:0,y:4.9*fs,'text-anchor':'middle','font-size':13.5*fs,'font-weight':700},g);tx.textContent=txt;
+  var ti=el('title',{},g);ti.textContent=s.n+': air '+tF(s.air)+'F'+(s.road!=null?', pavement '+tF(s.road)+'F':'')+'. '+RTXT[risk(s)]+'. Updated '+stWhen(s);
+  g._w=w;g._h=h;return g}
+var gWxMap=null,mapRad=null;
+function drawMapChips(){if(!gWxMap)return;gWxMap.replaceChildren();
+  if(S.mapTemps)stations.forEach(function(s){if(s.mi>7)return;var z=P(s.lon,s.lat),g=chipNode(s,1);g.dataset.x=z[0];g.dataset.y=z[1]-26;gWxMap.appendChild(g)});
+  if(vb)applyVB()}
+function renderMapWx(){if(!mapRad)return;var f=SN.radar;
+  if(S.mapRadar&&f&&ref()-f[0]<1800){if(mapRad._s!==f[1]){mapRad._s=f[1];mapRad.setAttribute('href',f[1])}mapRad.style.display=''}else mapRad.style.display='none'}
+
+/* ---------- Storm screen ---------- */
+var EXT=(DATA.radar&&DATA.radar.ext)||[-124,46.2,-122,44.8],COS=Math.cos(45.5*Math.PI/180);
+var ssvg=$('smap'),K2=1000/((EXT[2]-EXT[0])*COS),H2=(EXT[1]-EXT[3])*K2,sRad,gStChips,gStCams,sDots={},sBuilt=false,sv={x:0,y:0,w:1000,h:H2};
+function P2(lon,lat){return [(lon-EXT[0])*COS*K2,(EXT[1]-lat)*K2]}
+function lineD(r,close){return 'M'+r.map(function(p){var q=P2(p[0],p[1]);return q[0].toFixed(1)+' '+q[1].toFixed(1)}).join('L')+(close?'Z':'')}
+var TOWNS=[['Portland',45.523,-122.676],['Vancouver',45.639,-122.661],['Beaverton',45.487,-122.804],['Forest Grove',45.52,-123.11],['Salem',44.943,-123.035],['McMinnville',45.21,-123.196],['Newberg',45.3,-122.973],['Oregon City',45.357,-122.607],['Gresham',45.498,-122.43],['Longview',46.138,-122.938],['Scappoose',45.755,-122.876],['Vernonia',45.859,-123.186],['Tillamook',45.456,-123.844],['Sandy',45.397,-122.262]];
+function buildStorm(){
+  if(sBuilt||!RG)return;sBuilt=true;
+  el('rect',{x:-100,y:-100,width:1200,height:H2+200,fill:'var(--map)'},ssvg);
+  var gc=el('g',{},ssvg);
+  RG.counties.forEach(function(r){el('path',{d:lineD(r,true),fill:'var(--city)',stroke:'var(--cityline)','stroke-width':1.3,'stroke-linejoin':'round'},gc)});
+  sRad=el('image',{x:0,y:0,width:1000,height:H2,preserveAspectRatio:'none'},ssvg);sRad.style.display='none';
+  var gr=el('g',{},ssvg),gl=el('g',{},ssvg),best={};
+  RG.roads.forEach(function(r){el('path',{d:lineD(r.p,false),fill:'none',stroke:r.c==='hwy'?'var(--roadh)':'var(--roada)','stroke-width':r.c==='hwy'?2.6:1.5,'stroke-linecap':'round','stroke-linejoin':'round'},gr);
+    if(r.c==='hwy'||/OR 217|OR 99W|OR 18|OR 6$/.test(r.l)){if(!best[r.l]||r.p.length>best[r.l].p.length)best[r.l]=r}});
+  Object.keys(best).forEach(function(k){var r=best[k],i=Math.floor(r.p.length/2),a=P2(r.p[Math.max(0,i-1)][0],r.p[Math.max(0,i-1)][1]),b=P2(r.p[Math.min(r.p.length-1,i)][0],r.p[Math.min(r.p.length-1,i)][1]);
+    var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2-5;
+    var t=el('text',{x:mx,y:my,transform:'rotate('+ang.toFixed(1)+' '+mx+' '+my+')','text-anchor':'middle','font-size':11,'font-weight':700,fill:'var(--muted)',stroke:'var(--halo)','stroke-width':3,'paint-order':'stroke'},gl);t.textContent=k});
+  TOWNS.forEach(function(w){var z=P2(w[2],w[1]);el('circle',{cx:z[0],cy:z[1],r:2.6,fill:'var(--muted)'},gl);var t=el('text',{x:z[0]+5,y:z[1]+4,'font-size':12,fill:'var(--muted)',stroke:'var(--halo)','stroke-width':3,'paint-order':'stroke'},gl);t.textContent=w[0]});
+  el('path',{d:geo.city.map(function(r){return lineD(r,true)}).join(''),fill:'var(--blue)','fill-opacity':.14,stroke:'var(--blue)','stroke-width':1.6},ssvg);
+  gStCams=el('g',{},ssvg);
+  cams.forEach(function(c){var z=P2(c.lon,c.lat),d=el('circle',{cx:z[0],cy:z[1],r:4.2,fill:'var(--gray)',stroke:'var(--panel)','stroke-width':1.2},gStCams);var ti=el('title',{},d);ti.textContent=c.n;sDots[c.id]=d});
+  gStChips=el('g',{},ssvg);
+  var hz=P2(-122.9896,45.5226),ht=el('text',{x:hz[0]-8,y:hz[1]-10,'text-anchor':'end','font-size':14,'font-weight':700,fill:'var(--ink)',stroke:'var(--halo)','stroke-width':3.5,'paint-order':'stroke'},ssvg);ht.textContent='Hillsboro';
+  setSView(S.sview);
+}
+function setSView(n){S.sview=n;var c=P2(-122.9896,45.5226),w=n==='region'?1000:(n==='metro'?420:150);
+  sv=n==='region'?{x:0,y:0,w:1000,h:H2}:{x:c[0]-w/2,y:c[1]-w/2,w:w,h:w};
+  ssvg.setAttribute('viewBox',sv.x.toFixed(1)+' '+sv.y.toFixed(1)+' '+sv.w.toFixed(1)+' '+sv.h.toFixed(1));
+  Array.prototype.forEach.call(document.querySelectorAll('#viewseg button'),function(b){b.setAttribute('aria-pressed',b.dataset.v===n)});
+  sDirty=true;if(sBuilt)drawStormChips()}
+function drawStormChips(){sDirty=false;gStChips.replaceChildren();if(!S.l.temps)return;
+  var fs=Math.max(.2,sv.w/1000),placed=[];
+  stations.slice().sort(function(a,b){return RORD[risk(a)]-RORD[risk(b)]||a.mi-b.mi}).forEach(function(s){
+    var z=P2(s.lon,s.lat);if(z[0]<sv.x||z[0]>sv.x+sv.w||z[1]<sv.y||z[1]>sv.y+sv.h)return;
+    var g=chipNode(s,fs),hit=placed.some(function(q){return Math.abs(q.x-z[0])<(q.w+g._w)/2+2*fs&&Math.abs(q.y-z[1])<(q.h+g._h)/2+2*fs});
+    if(hit){var d=el('circle',{cx:z[0],cy:z[1],r:4*fs,class:'chipdot r-'+risk(s)},gStChips),ti=el('title',{},d);ti.textContent=s.n+': air '+tF(s.air)+'F'+(s.road!=null?', pavement '+tF(s.road)+'F':'');return}
+    placed.push({x:z[0],y:z[1],w:g._w,h:g._h});g.setAttribute('transform','translate('+z[0]+','+z[1]+')');gStChips.appendChild(g)})}
+var wxNowBuilt=false,wxKey='',wxNowKey='';
+function renderStorm(){
+  if(!sBuilt)buildStorm();if(!sBuilt)return;
+  var f=SN.radar,ok=f&&ref()-f[0]<1800;
+  if(S.l.radar&&ok){if(sRad._s!==f[1]){sRad._s=f[1];sRad.setAttribute('href',f[1])}sRad.style.display=''}else sRad.style.display='none';
+  var st=$('sstamp');st.textContent=f?'Radar scan '+fmt(f[0])+(ok?'':', too old for this time'):'No radar scan saved for this time';st.className='stamp'+(f&&ref()-f[0]>900?' old':'');
+  gStCams.style.display=S.l.cams?'':'none';
+  cams.forEach(function(c){var k=kind(c.id),d=sDots[c.id];if(d._k!==k){d._k=k;d.setAttribute('fill',k==='none'?'var(--red)':(k==='fresh'?'var(--green)':(k==='aging'?'var(--amber)':'var(--gray)')))}});
+  if(sDirty)drawStormChips();
+  renderWxNow(f,ok);renderWxList();
+}
+function renderWxNow(f,ok){
+  var box=$('wx-now');
+  if(!wxNowBuilt){wxNowBuilt=true;
+    box.innerHTML='<h2>Storm status</h2><div class="wxstat"><div><div class="cap">Radar near Hillsboro</div><div class="big" id="w-r1"></div><div class="cap" id="w-r2"></div></div><div><div class="cap">Hillsboro Airport</div><div class="big" id="w-k1"></div><div class="cap" id="w-k2"></div></div></div><svg class="spark" id="w-sp" viewBox="0 0 300 44" preserveAspectRatio="none" role="img" aria-label="Airport temperature, last 3 hours"></svg><div class="cap" id="w-k3"></div><div class="alertbox" id="w-al"></div>'}
+  var r1,r2;
+  if(!f||!ok){r1='No scan';r2='No radar scan saved for this time.'}
+  else{var s=RM[f[1]]||[];var pct=s[0],mx=s[1],nr=s[2];
+    if(mx!=null){r1=dbzWord(mx)[0].toUpperCase()+dbzWord(mx).slice(1);r2='Echo within 15 mi of Hillsboro, strongest '+Math.round(mx)+' dBZ.'}
+    else if(nr!=null){r1='Dry here';r2='Nearest echo about '+nr+' mi from Hillsboro. '+pct+'% of the view has precipitation.'}
+    else{r1='Dry';r2=(pct>0?pct+'% of the view has light echoes, none near Hillsboro.':'No precipitation echoes anywhere in the view.')}}
+  var tr=khioTrend();
+  var k1=tr?tF(tr.now)+'F':'--',k2=tr?(trendTxt(tr)+(tr.dew!=null?'. Dew point '+tF(tr.dew)+'F':'')+(tr.wind!=null?'. Wind '+tr.wind+' mph':'')+'. '+(tr.desc||'')):'No airport observations.',k3=tr?freezeEta(tr):'';
+  var al=WX.alerts,at,on=false;
+  if(al===null||al===undefined)at='Could not check National Weather Service alerts.';
+  else if(!al.length)at='No active National Weather Service alerts for Hillsboro.';
+  else{on=true;at=al.map(function(a){return a.event+(a.headline?': '+a.headline:'')}).join(' | ')}
+  var key=[r1,r2,k1,k2,k3,at,wxVer].join('~');if(key===wxNowKey)return;wxNowKey=key;
+  $('w-r1').textContent=r1;$('w-r2').textContent=r2;$('w-k1').textContent=k1;$('w-k2').textContent=k2;$('w-k3').textContent=k3;
+  var ae=$('w-al');ae.textContent=at;ae.className='alertbox'+(on?' on':'');
+  var sp=$('w-sp'),k=WX.khio||[];sp.replaceChildren();
+  if(k.length>2){var t0=k[0][0],t1=k[k.length-1][0]||t0+1,lo=Math.min.apply(0,k.map(function(o){return o[1]}).concat([32])),hi=Math.max.apply(0,k.map(function(o){return o[1]}));if(hi-lo<6)hi=lo+6;
+    var X=function(ts){return (ts-t0)/Math.max(1,t1-t0)*296+2},Y=function(v){return 42-(v-lo)/(hi-lo)*40};
+    el('line',{x1:0,x2:300,y1:Y(32),y2:Y(32)},sp);el('path',{d:'M'+k.map(function(o){return X(o[0]).toFixed(1)+' '+Y(o[1]).toFixed(1)}).join('L')},sp)}
+}
+function renderWxList(){
+  var box=$('wxlist'),arr=stations.slice();
+  if(S.wxSort==='cold')arr.sort(function(a,b){var x=Math.min(a.air==null?999:a.air,a.road==null?999:a.road),y=Math.min(b.air==null?999:b.air,b.road==null?999:b.road);return x-y||a.mi-b.mi});
+  var shown=S.wxAll?arr:arr.slice(0,10),key=S.wxSort+'|'+S.wxAll+'|'+wxVer+'|'+Math.floor(Date.now()/60000);if(key===wxKey)return;wxKey=key;
+  var fr=document.createDocumentFragment();
+  shown.forEach(function(s){var r=document.createElement('div');r.className='wxrow';
+    var b=document.createElement('span');b.className='risk '+risk(s);b.textContent=RTXT[risk(s)];
+    var m=document.createElement('div'),n=document.createElement('div');n.className='wn';n.textContent=s.n;var c=document.createElement('div');c.className='cap';
+    var bits=[];if(s.dew!=null)bits.push('Dew '+tF(s.dew));if(s.wind!=null)bits.push('Wind '+s.wind+' mph'+(s.dir?' '+s.dir:''));bits.push(s.mi+' mi away');bits.push((stAge(s)>3600?'Old reading, ':'')+stWhen(s));
+    c.textContent=bits.join(' / ');m.appendChild(n);m.appendChild(c);
+    var tp=document.createElement('div');tp.className='tmp';var bg=document.createElement('div');bg.className='big';bg.textContent=tF(s.air);tp.appendChild(bg);
+    if(s.road!=null){var pc=document.createElement('div');pc.className='cap';pc.textContent='Pavement '+tF(s.road);tp.appendChild(pc)}
+    r.appendChild(b);r.appendChild(m);r.appendChild(tp);fr.appendChild(r)});
+  box.replaceChildren(fr);
+  $('wxall').textContent=S.wxAll?'Show nearest 10':'Show all '+arr.length+' stations';
+}
+
+/* ---------- shared bits ---------- */
+function dist(a,b,c,d){var R=3958.8,r=Math.PI/180,x=Math.sin((c-a)*r/2)*Math.sin((c-a)*r/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)*Math.sin((d-b)*r/2);return 2*R*Math.asin(Math.sqrt(x))}
+function nearestSite(c){var b=null,bd=1e9;sites.forEach(function(s){var d=dist(c.lat,c.lon,s.lat,s.lon);if(d<bd){bd=d;b=s}});return {s:b,d:bd}}
+function noImgText(id){if(Store.list(id).length)return 'Nothing saved for this time yet';return bad[id]?'Camera reports "image currently unavailable"':'No image received yet'}
+/* Put a frame in a .pic box. Only touches the DOM when the image actually changes. */
+function showPic(box,f,c){
+  var im=box.querySelector('img'),none=!f;
+  box.classList.toggle('none',none);box.classList.toggle('wait',none&&Store.list(c.id).length>0);
+  if(none){if(im.dataset.s){im.removeAttribute('src');im.dataset.s=''}return}
+  if(im.dataset.s!==f[1]){var had=!!im.dataset.s;im.dataset.s=f[1];im.src=f[1];
+    if(had&&!reduce){im.classList.remove('flash');void im.offsetWidth;im.classList.add('flash')}}
+  im.alt='Image from '+c.n+' at '+fmt(f[0]);
+}
+function picHTML(extra){return '<div class="pic"><img alt="" decoding="async"'+(extra||'')+'><div class="no"><b>No image</b><span></span></div>'+'<span class="age"></span></div>'}
+function setAge(box,f,id){var a=box.querySelector('.age'),k=f?cls(ref()-f[0]):(Store.list(id).length?'stale':'none'),t=f?ageTxt(ref()-f[0]):(Store.list(id).length?'Not saved yet':'No image');
+  if(a._t!==t){a._t=t;a.textContent=t}a.className='age '+k;
+  var n=box.querySelector('.no span');if(n&&n._t!==id){n._t=id;n.textContent=noImgText(id)}}
+function selectCam(id){S.sel=id;S.follow=false;render()}
+
+/* ---------- Map screen ---------- */
+function renderMarkers(){
+  var top=newest();
+  cams.forEach(function(c){var g=markers[c.id],f=SN[c.id],k=kind(c.id),sel=S.sel===c.id;
+    var isNew=f&&top===c.id&&(ref()-f[0])<120,key=k+'|'+sel+'|'+isNew+'|'+(f?f[0]:0);
+    if(g._k===key)return;g._k=key;
+    g.setAttribute('class','pin f-'+k+(sel?' sel':''));
+    g._pu.style.display=(sel||isNew)&&f?'':'none';
+    g.setAttribute('aria-label',c.n+(f?', updated '+fmt(f[0]):', no image'))});
+}
+var lastDet=null;
+function renderDetail(){
+  var box=$('det-map'),c=S.sel?byId[S.sel]:null;
+  if(!c){if(lastDet!==0){lastDet=0;box.innerHTML='<h2>Select a camera</h2><p class="meta" style="margin:6px 0 0">Click any pin on the map or any name in the list. The image matches the time on the bar below. A red pin with a cross is a camera that is not providing an image.</p>'}return}
+  var f=SN[c.id];
+  if(lastDet!==c.id){lastDet=c.id;var ns=nearestSite(c);
+    box.innerHTML='<h2></h2><div class="meta"></div><div style="height:10px"></div>'+picHTML()+
+     '<dl class="kv"><dt>Updated</dt><dd id="d-up"></dd><dt>Owner</dt><dd id="d-ow"></dd><dt>Position</dt><dd id="d-pos"></dd><dt>Nearest City site</dt><dd id="d-ns"></dd><dt>Road weather</dt><dd id="d-wx"></dd></dl>'+
+     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn" id="d-board">Open on board</button></div>';
+    box.querySelector('h2').textContent=c.n;box.querySelector('.meta').textContent='Camera '+c.id+' on TripCheck';
+    $('d-ow').textContent=c.o;$('d-pos').textContent=c.lat.toFixed(5)+', '+c.lon.toFixed(5)+' (from TripCheck)';
+    $('d-ns').textContent=ns.s.n+', about '+ns.d.toFixed(1)+' mi straight line';
+    $('d-board').onclick=function(){S.follow=false;S.sel=c.id;setScreen('board')}}
+  var pb=box.querySelector('.pic');showPic(pb,f,c);setAge(pb,f,c.id);
+  $('d-up').textContent=f?fmtS(f[0]):'Not yet';$('d-wx').textContent=wxText(c);
+}
+var lastListKey='';
+function renderList(){
+  var arr=cams.slice().sort(function(a,b){var fa=SN[a.id],fb=SN[b.id];return (fb?fb[0]:0)-(fa?fa[0]:0)||a.id-b.id});
+  var key=S.sel+'|'+arr.map(function(c){var f=SN[c.id];return c.id+':'+(f?f[0]:0)+':'+kind(c.id)}).join(',');
+  if(key===lastListKey)return;lastListKey=key;
+  var box=$('camlist'),fr=document.createDocumentFragment();
+  arr.forEach(function(c){var f=SN[c.id],k=kind(c.id),b=document.createElement('button');b.className='row';b.type='button';if(S.sel===c.id)b.setAttribute('aria-current','true');
+    var sw=document.createElement('i');sw.className='sw'+(k==='none'?' red':'');if(k==='none')sw.textContent='\u00d7';else sw.style.background=k==='fresh'?'var(--green)':(k==='aging'?'var(--amber)':'var(--gray)');
+    var t=document.createElement('span');t.className='t';t.textContent=c.s;var a=document.createElement('span');a.className='a'+(k==='none'?' none':'');a.textContent=f?fmt(f[0]):(k==='none'?'No image':'Not yet');
+    b.appendChild(sw);b.appendChild(t);b.appendChild(a);b.onclick=function(){selectCam(c.id)};fr.appendChild(b)});
+  box.replaceChildren(fr);
+}
+
+/* ---------- Board screen ---------- */
+function miniMapSVG(id,big){
+  var s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',BB.join(' '));s.setAttribute('class',big?'minimap':'mm');s.setAttribute('role','img');
+  var u=el('use',{href:'#citysym'},s);u.setAttribute('x',BB[0]);u.setAttribute('y',BB[1]);u.setAttribute('width',BB[2]);u.setAttribute('height',BB[3]);
+  if(big)cams.forEach(function(c){var z=P(c.lon,c.lat);el('circle',{cx:z[0],cy:z[1],r:c.id===id?0:12,fill:byId[c.id]&&!Store.list(c.id).length?'var(--red)':'var(--gray)',opacity:.85},s)});
+  var c=byId[id],z=P(c.lon,c.lat);
+  if(big)el('circle',{cx:z[0],cy:z[1],r:26,fill:'var(--green)',class:'pulse'},s);
+  el('circle',{cx:z[0],cy:z[1],r:big?20:30,fill:'var(--green)',stroke:'var(--ink)','stroke-width':big?6:8},s);
+  return s;
+}
+var lastFeat=null;
+function renderFeat(){
+  var id=S.follow?newest():(S.sel||newest());if(!id)return;
+  if(S.follow)S.sel=id;
+  var c=byId[id],f=SN[id],box=$('feat');
+  if(lastFeat!==id){lastFeat=id;
+    box.innerHTML=picHTML()+'<div class="featinfo"><span class="badge" id="f-badge"></span><h2 id="f-h"></h2><div class="cap" id="f-sub"></div><div class="cap" id="f-wx"></div><svg id="f-mm"></svg><div class="cap">Click the small map to see this camera on the main map.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn alt" id="f-follow"></button></div></div>';
+    $('f-h').textContent=c.n;
+    var mm=miniMapSVG(id,true);mm.id='f-mm';mm.setAttribute('aria-label','Locator map for '+c.n+'. Click to open the main map.');$('f-mm').replaceWith(mm);
+    mm.onclick=function(){S.follow=false;S.sel=id;setScreen('map')};
+    $('f-follow').onclick=function(){S.follow=!S.follow;if(S.follow)S.sel=newest();render()}}
+  var pb=box.querySelector('.pic');showPic(pb,f,c);setAge(pb,f,id);
+  $('f-badge').textContent=S.follow?'Newest upload':'Selected camera';$('f-wx').textContent=wxText(c);
+  $('f-sub').textContent=c.o+' camera. '+(f?'Uploaded '+fmtS(f[0])+'.':noImgText(id)+'.');
+  $('f-follow').textContent=S.follow?'Following newest. Click to hold this camera':'Follow newest upload';
+}
+var lastFilmKey='';
+function renderFilm(){
+  var id=S.sel;if(!id)return;var c=byId[id],arr=Store.list(id),cur=SN[id];
+  $('film-h').textContent='Saved images, '+c.s;
+  var key=id+'|'+(cur?cur[0]:0)+'|'+arr.length+'|'+(arr.length?arr[arr.length-1][0]:0);if(key===lastFilmKey)return;lastFilmKey=key;
+  var box=$('film'),fr=document.createDocumentFragment();
+  for(var i=arr.length-1;i>=0;i--){(function(f){var b=document.createElement('button');b.type='button';b.className='fr';if(cur&&cur[0]===f[0])b.setAttribute('aria-current','true');
+    b.innerHTML='<div class="pic"><img alt="" loading="lazy" decoding="async"></div><span></span>';var im=b.querySelector('img');im.src=f[1];b.querySelector('span').textContent=fmt(f[0]);b.title=fmtS(f[0]);
+    b.onclick=function(){S.play=false;S.cursor=f[0];S.follow=false;S.sel=id;render()};fr.appendChild(b)})(arr[i])}
+  box.replaceChildren(fr);
+  $('film-note').textContent=arr.length?arr.length+' image'+(arr.length===1?'':'s')+' kept for this camera, covering '+(arr.length>1?Math.round((arr[arr.length-1][0]-arr[0][0])/60)+' min':'the latest capture')+'. Older than 3 hours is dropped as new ones arrive.':noImgText(id)+'.';
+  var cr=box.querySelector('[aria-current]');if(cr)box.scrollLeft=cr.offsetLeft-(box.clientWidth-cr.offsetWidth)/2;
+}
+var tiles={},gridOrder='',gridBuilt=false;
+function buildGrid(){
+  var g=$('grid');
+  cams.forEach(function(c){var n=document.createElement('button');n.type='button';n.className='tile';n.dataset.id=c.id;
+    n.innerHTML=picHTML(' loading="lazy"')+'<div class="cp"><div class="tt"><span></span><small></small></div></div>';
+    n.querySelector('.tt span').textContent=c.s;n.querySelector('.cp').appendChild(miniMapSVG(c.id,false));
+    n.onclick=function(){S.follow=false;S.sel=c.id;render();window.scrollTo({top:0,behavior:reduce?'auto':'smooth'})};
+    n._k='';tiles[c.id]=n;g.appendChild(n)});
+  gridBuilt=true;
+}
+function renderGrid(animate){
+  if(!gridBuilt)buildGrid();
+  var g=$('grid'),top=newest();
+  var order=cams.slice().sort(function(a,b){var fa=SN[a.id],fb=SN[b.id];return (fb?fb[0]:0)-(fa?fa[0]:0)||a.id-b.id}).map(function(c){return c.id});
+  var ok=order.join(),moved=ok!==gridOrder,before=null;
+  if(moved&&animate&&gridOrder&&!reduce){before={};cams.forEach(function(c){before[c.id]=tiles[c.id].getBoundingClientRect()})}
+  if(moved){gridOrder=ok;order.forEach(function(id,i){tiles[id].style.order=i})}
+  cams.forEach(function(c){var n=tiles[c.id],f=SN[c.id],k=kind(c.id),
+    key=(f?f[0]:0)+'|'+k+'|'+Math.floor(ref()/20)+'|'+(S.sel===c.id)+'|'+(top===c.id);
+    if(n._k===key)return;n._k=key;
+    n.classList.toggle('newest',top===c.id);n.classList.toggle('isnone',k==='none');
+    if(S.sel===c.id)n.setAttribute('aria-current','true');else n.removeAttribute('aria-current');
+    var pb=n.querySelector('.pic');showPic(pb,f,c);setAge(pb,f,c.id);
+    var sm=n.querySelector('small');sm.className=k==='none'?'none':'';sm.textContent=f?'Uploaded '+fmt(f[0])+' / '+c.o:(k==='none'?'Not providing an image':'Nothing saved for this time yet')});
+  if(before)cams.forEach(function(c){var n=tiles[c.id],a=n.getBoundingClientRect(),b=before[c.id],dx=b.left-a.left,dy=b.top-a.top;
+    if(dx||dy)n.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'none'}],{duration:420,easing:'ease-out'})});
+}
+
+/* ---------- chrome ---------- */
+var justSwitched=false;
+function setScreen(s){
+  if(S.screen===s){render();return}
+  S.screen=s;justSwitched=true;window.scrollTo(0,0);
+  ['map','board','storm','sched'].forEach(function(n){$('s-'+n).hidden=s!==n;$('tab-'+n).setAttribute('aria-selected',s===n)});
+  if(s==='storm')buildStorm();
+  render();justSwitched=false;
+  if(s==='map')requestAnimationFrame(function(){if(!S.sel)fitView()});
+}
+$('tab-map').onclick=function(){setScreen('map')};$('tab-board').onclick=function(){setScreen('board')};$('tab-storm').onclick=function(){setScreen('storm')};$('tab-sched').onclick=function(){setScreen('sched')};
+function renderTime(){
+  var sl=$('slider');sl.min=B.min;sl.max=B.max;sl.value=Math.max(B.min,Math.min(B.max,S.cursor));
+  $('t-start').textContent=B.max?fmt(B.min):'';$('t-end').textContent=B.max?fmt(B.max)+' (latest)':'';
+  $('t-now').textContent=B.max?fmtS(S.cursor):'';
+  $('b-play').textContent=S.play?'Pause':'Play';
+  var cm=camMax(),live=atLatest(),stale=live&&(ref()-cm)>600;
+  $('modetxt').textContent=S.play?'Replaying':(stale?(cm?'Cameras not live. Last capture '+fmt(cm):'Waiting for the first collection'):(live?'Showing latest':'Paused in history'));
+  $('livedot').className='dot'+(S.play||(live&&!stale)?' live':'');
+  $('livedot').style.background=stale&&!S.play?'var(--amber)':'';
+}
+function renderBanner(){
+  var none=cams.filter(function(c){return !Store.list(c.id).length}),p=$('proto'),e=evalSched(SCH,Date.now()),fa=S.feedAsof,age=fa?Date.now()/1000-fa:null,t;
+  p.textContent='';
+  if(!S.loaded)t='No collection has been published yet. Open the Schedule screen to start one.';
+  else{t='Last collected '+fmt(fa)+' ('+ageTxt(age)+'). ';
+    t+=e.act?'Collecting now until '+fmtD(e.act.end)+'. This page checks every 5 minutes.':(e.nxt?'Not collecting. Next storm window starts '+fmtD(e.nxt.start)+'.':'Not collecting. No storm window is scheduled.');
+    if(e.act&&age>900)t+=' The collector is running late.'}
+  p.appendChild(document.createTextNode(t));
+  if(S.loaded&&none.length){var b=document.createElement('b');b.textContent=' Not providing an image: '+none.map(function(c){return c.s}).join('; ')+'.';p.appendChild(b)}
+}
+var raf=0;
+function schedule(){if(!raf)raf=requestAnimationFrame(function(){raf=0;render()})}
+function render(){
+  snapshot();renderTime();renderWxPill();renderSchPill();
+  if(S.screen==='map'){renderMarkers();renderMapWx();renderDetail();renderList()}
+  else if(S.screen==='board'){renderFeat();renderFilm();renderGrid(!justSwitched)}
+  else if(S.screen==='storm')renderStorm();
+  else renderSched();
+  S.sig=sigOf();
+}
+$('slider').addEventListener('input',function(e){S.play=false;S.cursor=Number(e.target.value);preloadAll();schedule()});
+$('b-play').onclick=function(){if(atLatest())S.cursor=B.min;S.play=!S.play;S.last=0;preloadAll();render();if(S.play)startLoop()};
+$('b-live').onclick=function(){S.play=false;S.cursor=B.max;S.follow=true;render()};
+$('sel-speed').onchange=function(e){S.speed=Number(e.target.value)};
+$('b-labels').onclick=function(){S.labels=!S.labels;this.setAttribute('aria-pressed',S.labels);svg.classList.toggle('labels',S.labels)};
+function setTile(v){S.tile=v;$('grid').style.setProperty('--tile',v+'px');Array.prototype.forEach.call(document.querySelectorAll('#tileseg button'),function(b){b.setAttribute('aria-pressed',Number(b.dataset.t)===v)})}
+Array.prototype.forEach.call(document.querySelectorAll('#tileseg button'),function(b){b.onclick=function(){setTile(Number(b.dataset.t))}});
+var tileBeforeTV=320;
+$('b-tv').onclick=function(){S.tv=!S.tv;this.setAttribute('aria-pressed',S.tv);document.body.classList.toggle('tv',S.tv);
+  if(S.tv){tileBeforeTV=S.tile;setTile(480);S.follow=true;S.play=true;S.cursor=B.min;preloadAll();setScreen('board');startLoop()}else{setTile(tileBeforeTV);render()}};
+
+/* Replay loop runs only while playing. Otherwise nothing runs between events. */
+var looping=false;
+function startLoop(){if(looping)return;looping=true;S.last=0;requestAnimationFrame(tick)}
+function tick(ts){
+  if(!S.play){looping=false;return}
+  if(!S.last)S.last=ts;var dt=Math.min(.25,(ts-S.last)/1000);S.last=ts;
+  S.cursor+=dt*S.speed;
+  if(S.cursor>=B.max){S.cursor=B.max;
+    if(S.tv){S.loopHold+=dt;if(S.loopHold>5){S.loopHold=0;S.cursor=B.min}}else{S.play=false}}
+  snapshot();
+  var sg=sigOf();if(sg!==S.sig){render()}else renderTime();
+  requestAnimationFrame(tick);
+}
+/* Preload every saved image once, only when someone scrubs or plays, so replay never waits on the network. */
+var preloaded=false;
+function preloadAll(){if(preloaded)return;preloaded=true;Store.list('radar').forEach(function(f){var im=new Image();im.src=f[1]});cams.forEach(function(c){Store.list(c.id).forEach(function(f){var im=new Image();im.decoding='async';im.src=f[1]})})}
+
+/* Ages tick forward every 20 s even when nothing else changes. */
+setInterval(function(){if(document.hidden||S.play)return;snapshot();if(sigOf()!==S.sig)render()},20000);
+setInterval(poll,POLL_MS);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&Date.now()/1000-S.checked>POLL_MS/1000){poll()}else if(!document.hidden)schedule()});
+window.addEventListener('resize',function(){if(S.screen==='map'&&!S.sel)fitView()});
+
+/* ---------- Schedule: storm collection windows ---------- */
+var SCH={version:1,watch_hourly:false,windows:[]},schBuilt=false,schKey='',schBusy=false;
+var DFMT=new Intl.DateTimeFormat('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:TZ});
+function fmtD(sec){return DFMT.format(sec*1000)}
+function durTxt(sec){sec=Math.max(0,Math.round(sec/60));var d=Math.floor(sec/1440),h=Math.floor(sec%1440/60),m=sec%60;return d?d+' d '+h+' h':(h?h+' h '+m+' min':m+' min')}
+function evalSched(s,nowMs){var now=nowMs/1000,act=null,nxt=null;
+  (s.windows||[]).forEach(function(w){var st=Date.parse(w.start)/1000,en=st+Number(w.hours)*3600;if(isNaN(st)||isNaN(en))return;
+    if(st<=now&&now<en){if(!act||en>act.end)act={w:w,start:st,end:en}}
+    else if(st>now&&(!nxt||st<nxt.start))nxt={w:w,start:st,end:en}});
+  return {act:act,nxt:nxt}}
+function pacParts(ms){var o={};new Intl.DateTimeFormat('en-US',{timeZone:TZ,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(ms).forEach(function(x){o[x.type]=+x.value});return {y:o.year,mo:o.month-1,d:o.day,h:o.hour,mi:o.minute}}
+function pacToMs(v){var m=/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(v);if(!m)return NaN;var y=+m[1],mo=+m[2]-1,d=+m[3],h=+m[4],mi=+m[5],want=Date.UTC(y,mo,d,h,mi),g=want;
+  for(var i=0;i<3;i++){var p=pacParts(g);g+=want-Date.UTC(p.y,p.mo,p.d,p.h,p.mi)}return g}
+function pacInput(ms){var p=pacParts(ms),z=function(n){return (n<10?'0':'')+n};return p.y+'-'+z(p.mo+1)+'-'+z(p.d)+'T'+z(p.h)+':'+z(p.mi)}
+function iso(ms){return new Date(ms).toISOString().replace(/\.\d+Z$/,'Z')}
+var REPO=(function(){try{var h=location.hostname;if(/\.github\.io$/.test(h))return {o:h.split('.')[0],r:location.pathname.split('/')[1]||''};var m=(localStorage.getItem('hc_repo')||'').split('/');if(m.length===2&&m[0]&&m[1])return {o:m[0],r:m[1]}}catch(e){}return null})();
+function tokGet(){try{return localStorage.getItem('hc_token')||''}catch(e){return ''}}
+function tokSet(v){try{if(v)localStorage.setItem('hc_token',v);else localStorage.removeItem('hc_token')}catch(e){}}
+function gh(path,opt){opt=opt||{};var h={'Accept':'application/vnd.github+json','Authorization':'Bearer '+tokGet(),'X-GitHub-Api-Version':'2022-11-28'};if(opt.body)h['Content-Type']='application/json';
+  return fetch('https://api.github.com/repos/'+REPO.o+'/'+REPO.r+path,{method:opt.method||'GET',headers:h,body:opt.body}).then(function(r){
+    return r.text().then(function(x){var j={};try{j=x?JSON.parse(x):{}}catch(e){}if(!r.ok){var er=new Error(j.message||('HTTP '+r.status));er.status=r.status;throw er}return j})})}
+function b64d(s){return decodeURIComponent(escape(atob(s.replace(/\s/g,''))))}
+function b64e(s){return btoa(unescape(encodeURIComponent(s)))}
+function prune(s){var cut=Date.now()/1000-7*86400;s.windows=(s.windows||[]).filter(function(w){return !(Date.parse(w.start)/1000+Number(w.hours)*3600<cut)})}
+/* Read the saved file, apply one change, save it back. If someone else saved in between, read again and redo. */
+function mutate(fn,msg,attempt){attempt=attempt||0;
+  return gh('/contents/schedule.json?ref=main').then(function(j){var cur;try{cur=JSON.parse(b64d(j.content))}catch(e){cur={version:1,watch_hourly:false,windows:[]}}
+    var nx=fn(JSON.parse(JSON.stringify(cur)));nx.version=1;prune(nx);
+    return gh('/contents/schedule.json',{method:'PUT',body:JSON.stringify({message:msg,content:b64e(JSON.stringify(nx,null,1)+'\n'),sha:j.sha,branch:'main'})}).then(function(){SCH=nx;schKey='';return nx},function(e){if((e.status===409||e.status===422)&&attempt<2)return mutate(fn,msg,attempt+1);throw e})})}
+function dispatchRun(){return gh('/actions/workflows/collect.yml/dispatches',{method:'POST',body:JSON.stringify({ref:'main'})})}
+function loadSchedule(){
+  var urls=[];if(REPO)urls.push('https://raw.githubusercontent.com/'+REPO.o+'/'+REPO.r+'/main/schedule.json');urls.push('schedule.json');
+  (function next(i){if(i>=urls.length)return;fetch(urls[i]+'?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(function(j){SCH=j;schKey='';renderSchPill();if(S.screen==='sched')renderSched()}).catch(function(){next(i+1)})})(0)}
+function renderSchPill(){var e=evalSched(SCH,Date.now()),p=$('schpill');
+  p.textContent=e.act?'Collecting until '+fmtD(e.act.end):(e.nxt?'Starts '+fmtD(e.nxt.start):'Not collecting');
+  p.style.background=e.act?'var(--green)':'';p.style.color=e.act?'#10260a':''}
+function winState(w,now){var st=Date.parse(w.start)/1000,en=st+Number(w.hours)*3600;return st<=now&&now<en?'active':(st>now?'upcoming':'ended')}
+function buildSched(){schBuilt=true;
+  var at=$('sch-at');at.value=pacInput(Date.now()+3600000);
+  Array.prototype.forEach.call(document.getElementsByName('sch-when'),function(r){r.onchange=function(){at.disabled=document.querySelector('input[name=sch-when]:checked').value!=='at'}});
+  Array.prototype.forEach.call(document.querySelectorAll('#sch-chips button'),function(b){b.onclick=function(){$('sch-hours').value=b.dataset.h;chips()}});
+  function chips(){var v=$('sch-hours').value;Array.prototype.forEach.call(document.querySelectorAll('#sch-chips button'),function(b){b.setAttribute('aria-pressed',b.dataset.h===String(v))})}
+  $('sch-hours').oninput=chips;
+  $('sch-watch').onchange=function(){var on=this.checked;if(!tokGet()){this.checked=!on;msg('Connect GitHub below first, then this can be saved.');return}busy(true);mutate(function(s){s.watch_hourly=on;return s},'Hourly snapshot '+(on?'on':'off')).then(function(){msg('Saved.')},fail).then(function(){busy(false)})};
+  $('sch-go').onclick=function(){
+    var hrs=Number($('sch-hours').value),mode=document.querySelector('input[name=sch-when]:checked').value,now=Math.floor(Date.now()/60000)*60000,st=mode==='now'?now:pacToMs($('sch-at').value);
+    if(!(hrs>=1&&hrs<=168)){msg('Hours must be between 1 and 168.');return}
+    if(isNaN(st)){msg('Pick a start date and time.');return}
+    if(mode==='at'&&st<now-300000){msg('That start time has already passed. Choose a later time or Right now.');return}
+    if(!tokGet()||!REPO){msg('Connect GitHub below first. Nothing was saved.');return}
+    busy(true);msg('Saving...');
+    mutate(function(s){s.windows.push({id:'w'+Date.now().toString(36),start:iso(st),hours:hrs,label:$('sch-label').value.trim()});return s},'Add storm window').then(function(){
+      msg('Saved. '+(mode==='now'?'Starting a collection now.':'Collection starts '+fmtD(st/1000)+'.'));
+      if(mode==='now')return dispatchRun().then(function(){msg('Saved. Collection is starting now. Images appear in about a minute.')},function(){msg('Saved. Collection begins at the next 5 minute run, usually within 10 minutes.')})},fail).then(function(){busy(false);schedule()})};
+  conn();
+}
+function msg(t){$('sch-msg').textContent=t}
+function busy(b){schBusy=b;$('sch-go').disabled=b}
+function fail(e){msg(e&&e.status===401?'GitHub refused the token. Check it in the box below.':(e&&e.status===403?'The token is not allowed to do that. It needs Contents and Actions write access to this repository.':'Could not save: '+(e&&e.message||'unknown error')))}
+function conn(){var box=$('sch-conn'),have=!!tokGet();box.replaceChildren();
+  var h=document.createElement('h2');h.textContent='Connection to GitHub';box.appendChild(h);
+  var p=document.createElement('p');p.className='cap';p.style.margin='4px 0 8px';
+  p.textContent=have?'A token is saved in this browser. It lets this page save the schedule and start a run.':'This page can only save a schedule when it holds a token. Anyone can look at the page; only a token lets someone change it. Keep the token on your own computer, not on crew phones.';box.appendChild(p);
+  if(!REPO){var l=document.createElement('label');l.className='opt';l.textContent='Repository (owner/name) ';var i=document.createElement('input');i.type='text';i.id='sch-repo';i.placeholder='owner/name';l.appendChild(i);box.appendChild(l)}
+  var tl=document.createElement('label');tl.className='opt';tl.style.display='block';tl.textContent='Token ';var ti=document.createElement('input');ti.type='password';ti.id='sch-token';ti.placeholder=have?'Saved (hidden)':'Paste token';ti.autocomplete='off';ti.style.width='100%';ti.style.maxWidth='340px';tl.appendChild(ti);box.appendChild(tl);
+  var row=document.createElement('div');row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:8px 0';
+  var sv=document.createElement('button');sv.className='btn';sv.textContent='Save and test';var fg=document.createElement('button');fg.className='btn alt';fg.textContent='Forget token';row.appendChild(sv);row.appendChild(fg);box.appendChild(row);
+  var st=document.createElement('div');st.className='cap';st.setAttribute('role','status');box.appendChild(st);
+  sv.onclick=function(){try{if(!REPO){var rv=($('sch-repo').value||'').trim().split('/');if(rv.length!==2||!rv[0]||!rv[1]){st.textContent='Enter the repository as owner/name.';return}localStorage.setItem('hc_repo',rv.join('/'));REPO={o:rv[0],r:rv[1]}}}catch(e){}
+    var v=ti.value.trim();if(v)tokSet(v);if(!tokGet()){st.textContent='Paste a token first.';return}
+    st.textContent='Testing...';gh('').then(function(j){st.textContent=j.permissions&&j.permissions.push?'Connected. This token can save the schedule.':'Connected, but this token can only read. It needs Contents write access.';ti.value='';schKey='';renderSched()},function(e){st.textContent=e.status===401?'GitHub refused that token.':'Could not reach the repository: '+e.message})};
+  fg.onclick=function(){tokSet('');st.textContent='Token removed from this browser.';conn()};
+  var d=document.createElement('details');var sm=document.createElement('summary');sm.textContent='How to make a token';d.appendChild(sm);
+  var ol=document.createElement('ol');['On GitHub open Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token.','Repository access: Only select repositories, then choose this repository.','Permissions: Contents set to Read and write, and Actions set to Read and write. Nothing else.','Set an expiry (90 days is fine), generate it, and paste it above.'].forEach(function(x){var li=document.createElement('li');li.textContent=x;ol.appendChild(li)});d.appendChild(ol);box.appendChild(d);
+}
+function renderSched(){
+  if(!schBuilt)buildSched();
+  var now=Date.now()/1000,e=evalSched(SCH,Date.now()),fa=S.feedAsof,age=fa?now-fa:null;
+  var key=[JSON.stringify(SCH),Math.floor(now/30),fa,tokGet()?1:0,S.loaded].join('|');if(key===schKey)return;schKey=key;
+  var box=$('sch-status');box.replaceChildren();
+  var big=document.createElement('div');big.className='stbig'+(e.act?' on':'');big.textContent=e.act?'Collecting now':(e.nxt?'Waiting for the next storm window':'Not collecting');box.appendChild(big);
+  var d=document.createElement('div');d.style.marginTop='4px';
+  d.textContent=e.act?'Window ends '+fmtD(e.act.end)+', in '+durTxt(e.act.end-now)+'.':(e.nxt?'Starts '+fmtD(e.nxt.start)+', in '+durTxt(e.nxt.start-now)+'. It runs '+durTxt(e.nxt.end-e.nxt.start)+'.':'No storm window is scheduled. Start one on this screen.');box.appendChild(d);
+  var h=document.createElement('div');h.className='cap';h.style.marginTop='8px';
+  h.textContent=fa?'Last collection '+fmtD(fa)+' ('+ageTxt(age)+').':'No collection has run yet.';box.appendChild(h);
+  if(e.act&&(!fa||age>900)){var w=document.createElement('div');w.className='warn';w.style.marginTop='6px';w.textContent=fa?'No new collection for '+durTxt(age)+'. GitHub can run late. If this continues, check the Actions tab on GitHub.':'A window is open but nothing has been collected yet. The first run starts within about 10 minutes.';box.appendChild(w)}
+  if(SCH.watch_hourly&&!e.act){var wn=document.createElement('div');wn.className='cap';wn.textContent='Hourly snapshots are on while no window is open.';box.appendChild(wn)}
+  $('sch-watch').checked=!!SCH.watch_hourly;
+  var list=$('sch-list');list.replaceChildren();var ws=(SCH.windows||[]).slice().sort(function(a,b){return Date.parse(b.start)-Date.parse(a.start)});
+  if(!ws.length){var em=document.createElement('p');em.className='cap';em.textContent='Nothing scheduled yet.';list.appendChild(em)}
+  ws.forEach(function(w){var s=winState(w,now),st=Date.parse(w.start)/1000,en=st+Number(w.hours)*3600,row=document.createElement('div');row.className='win';
+    var l=document.createElement('div'),t=document.createElement('span');t.className='wt';t.textContent=w.label||'Storm window';var tg=document.createElement('span');tg.className='tag '+s;tg.textContent=s==='active'?'Active':(s==='upcoming'?'Upcoming':'Ended');t.appendChild(tg);l.appendChild(t);
+    var c=document.createElement('div');c.className='cap';c.textContent=fmtD(st)+' to '+fmtD(en)+' ('+durTxt(en-st)+')';l.appendChild(c);row.appendChild(l);
+    if(s!=='ended'){var b=document.createElement('button');b.className='btn alt';b.textContent=s==='active'?'Stop now':'Cancel';b.disabled=!tokGet();b.title=tokGet()?'':'Connect GitHub first';
+      b.onclick=function(){busy(true);msg('Saving...');mutate(function(x){x.windows=x.windows.filter(function(q){if(q.id!==w.id)return true;var ss=Date.parse(q.start);var el=(Date.now()-ss)/3600000;if(el<0.02)return false;q.hours=Math.round((el-0.0002)*10000)/10000;return true});return x},(s==='active'?'Stop':'Cancel')+' storm window').then(function(){msg(s==='active'?'Stopped. No more collections will run.':'Cancelled.')},fail).then(function(){busy(false);schedule()})};row.appendChild(b)}
+    list.appendChild(row)});
+}
+
+/* open: draw the map, show newest image of every camera first, then check the feed */
+buildMap();
+cams.forEach(function(c){var f=Store.at(c.id,B.max);if(f){var im=new Image();im.decoding='async';im.src=f[1]}});
+Store.list('radar').forEach(function(f){var im=new Image();im.src=f[1]});
+function pressed(id,v){$(id).setAttribute('aria-pressed',v)}
+$('lay-mtemp').onclick=function(){S.mapTemps=!S.mapTemps;pressed('lay-mtemp',S.mapTemps);drawMapChips()};
+$('lay-mrad').onclick=function(){S.mapRadar=!S.mapRadar;pressed('lay-mrad',S.mapRadar);renderMapWx()};
+$('lay-radar').onclick=function(){S.l.radar=!S.l.radar;pressed('lay-radar',S.l.radar);schedule()};
+$('lay-temps').onclick=function(){S.l.temps=!S.l.temps;pressed('lay-temps',S.l.temps);sDirty=true;schedule()};
+$('lay-cams').onclick=function(){S.l.cams=!S.l.cams;pressed('lay-cams',S.l.cams);schedule()};
+Array.prototype.forEach.call(document.querySelectorAll('#viewseg button'),function(b){b.onclick=function(){setSView(b.dataset.v)}});
+Array.prototype.forEach.call(document.querySelectorAll('#wxsort button'),function(b){b.onclick=function(){S.wxSort=b.dataset.s;Array.prototype.forEach.call(document.querySelectorAll('#wxsort button'),function(x){x.setAttribute('aria-pressed',x===b)});wxKey='';schedule()}});
+$('wxall').onclick=function(){S.wxAll=!S.wxAll;wxKey='';schedule()};
+render();renderBanner();
+poll();
+window.HillsboroCams={addFrame:addFrame,Store:Store,render:render};
+})();
+</script>
