@@ -51,7 +51,8 @@ def load(path):
 if __name__ == '__main__':
     path = sys.argv[1] if len(sys.argv) > 1 else 'schedule.json'
     r = evaluate(load(path))
-    lines = ['run=' + ('true' if r['run'] else 'false'), 'state=' + r['state']]
+    soon = bool(r['next'] and (r['next']['start'] - dt.datetime.now(UTC)).total_seconds() < 6 * 3600)
+    lines = ['run=' + ('true' if r['run'] else 'false'), 'go=' + ('true' if (r['run'] or soon) else 'false'), 'state=' + r['state']]
     if r['window']:
         lines.append('ends=' + r['window']['end'].isoformat())
     print('\n'.join(lines))

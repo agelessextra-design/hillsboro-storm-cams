@@ -866,7 +866,8 @@ function buildSched(){schBuilt=true;
     busy(true);msg('Saving...');
     mutate(function(s){s.windows.push({id:'w'+Date.now().toString(36),start:iso(st),hours:hrs,label:$('sch-label').value.trim()});return s},'Add storm window').then(function(){
       msg('Saved. '+(mode==='now'?'Starting a collection now.':'Collection starts '+fmtD(st/1000)+'.'));
-      if(mode==='now')return dispatchRun().then(function(){msg('Saved. Collection is starting now. Images appear in about a minute.')},function(){msg('Saved. Collection begins at the next 5 minute run, usually within 10 minutes.')})},fail).then(function(){busy(false);schedule()})};
+      if(mode==='now'||st-now<5.5*3600000)return dispatchRun().then(function(){msg(mode==='now'?'Saved. Collection is starting now. Images appear in about a minute.':'Saved. A collector is now waiting and will start at '+fmtD(st/1000)+'.')},function(){msg('Saved. The collector could not be started from here. Open the Actions tab on GitHub and press Run workflow.')});
+      msg('Saved. Collection starts '+fmtD(st/1000)+'. Open this page and press Start within 5 hours of then if the timer has not begun it.')},fail).then(function(){busy(false);schedule()})};
   conn();
 }
 function msg(t){$('sch-msg').textContent=t}

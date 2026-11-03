@@ -1,14 +1,15 @@
 name: Collect cameras, radar and road weather
 
-# GitHub wakes this up about every 5 minutes. The first step reads schedule.json and, outside a
-# storm window, stops after a few seconds without installing or collecting anything.
+# One run loops internally: every 5 minutes while a storm window is open, for about 5.5 hours,
+# then starts the next run itself. The timer below and the page's Start button only wake the chain up.
 on:
   schedule:
     - cron: '*/5 * * * *'
-  workflow_dispatch:          # lets the page's Start now button run a pass immediately
+  workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: collect
@@ -17,48 +18,27 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 350
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Is a storm window open?
+      - name: Is a storm window open or about to open?
         id: gate
         run: python3 gate.py schedule.json
 
-      - name: Restore the last published data
-        if: steps.gate.outputs.run == 'true'
-        run: |
-          git fetch --depth=1 origin gh-pages:gh-pages 2>/dev/null || true
-          mkdir -p site
-          git --work-tree=site checkout gh-pages -- . 2>/dev/null || true
-          git reset -q
-
       - uses: actions/setup-python@v5
-        if: steps.gate.outputs.run == 'true'
+        if: steps.gate.outputs.go == 'true'
         with:
           python-version: '3.12'
           cache: pip
 
       - name: Install
-        if: steps.gate.outputs.run == 'true'
+        if: steps.gate.outputs.go == 'true'
         run: pip install -r requirements.txt
 
-      - name: Collect
-        if: steps.gate.outputs.run == 'true'
-        run: python collect.py site
-
-      - name: Publish the page and data
-        if: steps.gate.outputs.run == 'true'
-        run: |
-          cp web/index.html site/index.html
-          cp schedule.json site/schedule.json
-          rm -rf site/wxraw site/.git
-          touch site/.nojekyll
-          cd site
-          git init -q
-          git checkout -q -b gh-pages
-          git config user.name "storm-collector"
-          git config user.email "storm-collector@users.noreply.github.com"
-          git add -A
-          git commit -q -m "Collected $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
+      - name: Collect every 5 minutes
+        if: steps.gate.outputs.go == 'true'
+        run: python3 loop.py
