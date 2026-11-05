@@ -1,0 +1,965 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Hillsboro Road Cameras</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap">
+<style>
+/* Two screens (Map, Board) share one time bar. Both stay mounted so switching is a cross-fade, not a rebuild. */
+:root{
+  --bg:#eef2f8; --panel:#ffffff; --ink:#0f1d36; --muted:#44546f; --line:#cfd8e6;
+  --head:#002D72; --headink:#ffffff; --blue:#002D72; --green:#64A70B; --greentext:#3b7300;
+  --amber:#b86e00; --gray:#6f7b8f; --red:#c62828; --map:#e7eef8; --city:#f9fbff; --cityline:#7d93b8;
+  --roadh:#6e86ad; --roada:#b3c0d8; --halo:#ffffff; --chip:#e3eaf6; --focus:#0b57d0; --pic:#0b1424; --ice:#1c5fc2; --chipink:#ffffff;
+  --font:'Open Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --u:1;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0a1322; --panel:#12203a; --ink:#e9f0ff; --muted:#a9b8d6; --line:#26385a;
+  --head:#0a1d45; --headink:#ffffff; --blue:#9dbcff; --green:#7fc41f; --greentext:#8ed03a;
+  --amber:#f0b44c; --gray:#8d9bb5; --red:#ff6b6b; --map:#0e1a31; --city:#14233f; --cityline:#4a6290;
+  --roadh:#6c86b5; --roada:#34486d; --halo:#0e1a31; --chip:#1b2c4b; --focus:#8fb4ff; --ice:#7db4ff; --chipink:#0a1322; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0a1322; --panel:#12203a; --ink:#e9f0ff; --muted:#a9b8d6; --line:#26385a;
+  --head:#0a1d45; --headink:#ffffff; --blue:#9dbcff; --green:#7fc41f; --greentext:#8ed03a;
+  --amber:#f0b44c; --gray:#8d9bb5; --red:#ff6b6b; --map:#0e1a31; --city:#14233f; --cityline:#4a6290;
+  --roadh:#6c86b5; --roada:#34486d; --halo:#0e1a31; --chip:#1b2c4b; --focus:#8fb4ff; --ice:#7db4ff; --chipink:#0a1322; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:calc(15px * var(--u));line-height:1.45;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px));}
+body.tv{--u:1.35}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--head);color:var(--headink)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--head);z-index:30}
+.hin{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));}
+.hin h1{font-size:1.2em;margin:0;font-weight:700;letter-spacing:.01em}
+.tabs{display:flex;gap:6px}
+.tab{background:transparent;border:2px solid rgba(255,255,255,.35);color:var(--headink);border-radius:20px;padding:6px 16px;font-weight:600;min-height:40px;transition:background .15s,color .15s}
+.tab:hover{background:rgba(255,255,255,.14)}
+.tab[aria-selected="true"]{background:#fff;color:#002D72;border-color:#fff}
+.hr{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border-radius:14px;padding:4px 10px;font-size:.85em}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block}
+.dot.live{animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.hbtn{background:transparent;border:2px solid rgba(255,255,255,.35);color:var(--headink);border-radius:8px;padding:5px 12px;min-height:38px}
+.hbtn:hover{background:rgba(255,255,255,.14)}
+.hbtn[aria-pressed="true"]{background:#fff;color:#002D72}
+.proto{background:var(--chip);color:var(--ink);font-size:.85em;padding:6px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+.proto b{color:var(--red)}
+main{padding:14px max(16px,env(safe-area-inset-right,0px)) 110px max(16px,env(safe-area-inset-left,0px));max-width:1600px;margin:0 auto}
+[hidden]{display:none!important}
+section[hidden]{display:none!important}
+section.scr{animation:scrin .22s ease-out}
+@keyframes scrin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.mapgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:14px;align-items:start}
+@media(max-width:900px){.mapgrid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+.mapwrap{position:relative;overflow:hidden}
+#map{display:block;width:100%;height:auto;aspect-ratio:1.25/1;max-height:78vh;background:var(--map);touch-action:none;cursor:grab}
+#map.drag{cursor:grabbing}
+.zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-size:1.2em;font-weight:700}
+.zoom button:hover{background:var(--chip)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 14px;border-top:1px solid var(--line);font-size:.85em;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);flex:none;color:#fff;font-size:10px;font-weight:700;line-height:1;font-style:normal}
+.sw.dia{border-radius:2px;transform:rotate(45deg) scale(.85)}
+.sw.red{background:var(--red)}
+.pin{cursor:pointer}
+.pin .body{stroke:var(--panel);stroke-width:2.5;transition:fill .3s}
+.pin:hover .body,.pin:focus .body{stroke:var(--ink);stroke-width:3}
+.pin:focus{outline:none}
+.pin:focus-visible .body{stroke:var(--focus);stroke-width:4}
+.pin .lab{opacity:0;transition:opacity .12s;pointer-events:none}
+.pin:hover .lab,.pin:focus .lab,.pin.sel .lab,#map.labels .pin .lab,.pin.f-none .lab{opacity:1}
+.pin .x{display:none;pointer-events:none}
+.pin.f-none .x{display:block}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pl 1.8s ease-out infinite}
+@keyframes pl{0%{opacity:.7;transform:scale(.7)}100%{opacity:0;transform:scale(2.6)}}
+.f-fresh .body{fill:var(--green)}.f-aging .body{fill:var(--amber)}.f-stale .body{fill:var(--gray)}.f-none .body{fill:var(--red)}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.det{padding:14px}
+.det h2{margin:0 0 2px;font-size:1.1em;line-height:1.3;text-wrap:balance}
+.det .meta{color:var(--muted);font-size:.88em}
+/* Pictures: files are the camera's own 320x240 frame, so 320 CSS px is 1:1 and sharpest. */
+.pic{position:relative;background:var(--pic);border-radius:6px;overflow:hidden;aspect-ratio:4/3;max-width:100%}
+.pic img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
+.pic .no{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:12px;text-align:center;color:#fff;background:repeating-linear-gradient(135deg,#7a1c1c 0 14px,#8c2424 14px 28px);font-size:.9em}
+.pic .no b{font-size:1.1em}
+.pic.none img{display:none}.pic.none .no{display:flex}
+.flash{animation:flash .4s ease-out}
+@keyframes flash{0%{opacity:.25}100%{opacity:1}}
+.age{position:absolute;left:6px;top:6px;background:rgba(0,20,60,.8);color:#fff;border-radius:10px;padding:1px 9px;font-size:.75em;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none}
+.age.fresh{background:#2f6200}.age.aging{background:#8a5200}.age.stale{background:#4b5568}.age.none{background:#8c1d1d}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:10px 0 0;font-size:.88em}
+.kv dt{color:var(--muted)}.kv dd{margin:0;overflow-wrap:anywhere}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;min-height:40px}
+:root[data-theme="dark"] .btn{color:#0a1322}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#0a1322}}
+.btn.alt{background:var(--chip);color:var(--ink)}
+.btn:hover{filter:brightness(1.12)}
+.list{max-height:320px;overflow:auto;padding:4px}
+.row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:6px;padding:7px 10px;min-height:40px}
+.row:hover{background:var(--chip)}
+.row[aria-current="true"]{background:var(--chip);font-weight:600}
+.row .t{flex:1;min-width:0}
+.row .a{font-size:.82em;color:var(--muted);font-variant-numeric:tabular-nums}
+.row .a.none{color:var(--red);font-weight:600}
+/* Board */
+.feat{padding:14px;display:grid;grid-template-columns:minmax(0,640px) minmax(0,1fr);gap:16px;margin-bottom:14px}
+@media(max-width:900px){.feat{grid-template-columns:minmax(0,1fr)}}
+.featinfo{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:420px}
+.featinfo h2{margin:0;font-size:1.25em;line-height:1.25;text-wrap:balance}
+.badge{align-self:flex-start;background:var(--green);color:#10260a;font-weight:700;font-size:.78em;border-radius:10px;padding:2px 10px;letter-spacing:.03em;text-transform:uppercase}
+.minimap{display:block;width:100%;height:auto;background:var(--map);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.minimap:hover{border-color:var(--ink)}
+.cap{font-size:.82em;color:var(--muted)}
+.strip{padding:12px 14px;margin-bottom:14px}
+.strip h3,.gridbar h3{margin:0;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.film{position:relative;display:flex;gap:8px;overflow-x:auto;padding:8px 0;scroll-snap-type:x proximity}
+.fr{flex:none;width:128px;border:2px solid transparent;border-radius:6px;background:transparent;padding:0;scroll-snap-align:start;text-align:left}
+.fr .pic{border-radius:4px}
+.fr span{display:block;font-size:.75em;color:var(--muted);font-variant-numeric:tabular-nums;padding:2px 2px 0}
+.fr:hover{border-color:var(--line)}
+.fr[aria-current="true"]{border-color:var(--green)}
+.fr[aria-current="true"] span{color:var(--ink);font-weight:700}
+.gridbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:0 0 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:var(--panel);border:0;padding:6px 12px;min-height:36px;font-size:.85em;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--blue);color:#fff}
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{color:#0a1322}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"]{color:#0a1322}}
+.grid{--tile:320px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--tile)),calc(var(--tile) * 1.2)));justify-content:center;gap:12px}
+.tile{position:relative;display:flex;flex-direction:column;background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:0;text-align:left;overflow:hidden;min-width:0;contain:layout paint}
+.tile:hover{border-color:var(--blue)}
+.tile[aria-current="true"]{border-color:var(--green);box-shadow:0 0 0 2px var(--green)}
+.tile.isnone{border-color:var(--red)}
+.tile .pic{border-radius:0}
+.tile .cp{display:flex;align-items:center;gap:8px;padding:6px 8px 7px 10px}
+.tile .tt{flex:1;min-width:0;font-size:.88em;font-weight:600;line-height:1.3}
+.tile .tt small{display:block;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.tile .tt small.none{color:var(--red);font-weight:600}
+.tile .mm{flex:none;width:46px;height:46px;border-radius:6px;background:var(--map);border:1px solid var(--line)}
+.tile.newest::after{content:"Newest";position:absolute;right:6px;top:6px;background:var(--green);color:#10260a;font-weight:700;font-size:.72em;border-radius:10px;padding:1px 8px}
+/* Time bar */
+.timebar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--panel);border-top:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.timebar .btn{min-width:44px;padding:8px 12px}
+.sl{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sl input{width:100%;accent-color:var(--blue);height:28px}
+.sl .ends{display:flex;justify-content:space-between;font-size:.78em;color:var(--muted);font-variant-numeric:tabular-nums}
+.timebar select{font:inherit;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:40px}
+.tnow{font-weight:700;font-variant-numeric:tabular-nums;min-width:8.5em}
+.pic.wait .no{background:#3a4660}
+.layers{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 14px;border-top:1px solid var(--line);font-size:.85em}
+.lay{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:4px 14px;min-height:34px;font-size:1em}
+.lay[aria-pressed="true"]{background:var(--blue);color:#fff;border-color:var(--blue)}
+:root[data-theme="dark"] .lay[aria-pressed="true"]{color:#0a1322}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lay[aria-pressed="true"]{color:#0a1322}}
+.chip rect{fill:var(--panel);stroke:var(--gray);stroke-width:1.5}
+.chip text{fill:var(--ink);font-family:var(--font)}
+.chip.r-watch rect{fill:var(--amber);stroke:var(--amber)}
+.chip.r-freeze rect{fill:var(--ice);stroke:var(--ice)}
+.chip.r-watch text,.chip.r-freeze text{fill:var(--chipink)}
+.chipdot{fill:var(--gray);stroke:var(--panel);stroke-width:1}
+.chipdot.r-watch{fill:var(--amber)}.chipdot.r-freeze{fill:var(--ice)}
+.stormgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,430px);gap:14px;align-items:start}
+@media(max-width:900px){.stormgrid{grid-template-columns:minmax(0,1fr)}}
+#smap{display:block;width:100%;height:auto;aspect-ratio:1/1;max-height:80vh;background:var(--map)}
+.stamp{position:absolute;left:10px;top:10px;background:rgba(0,20,60,.84);color:#fff;border-radius:12px;padding:3px 12px;font-size:.85em;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none}
+.stamp.old{background:#8a5200}
+.rleg i{display:inline-block;width:22px;height:12px;border-radius:2px}
+.rleg .note{flex:1 1 100%}
+.wxstat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:10px}
+.big{font-size:1.6em;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.wxstat .cap{margin-top:2px}
+.alertbox{margin-top:12px;padding:8px 12px;border-radius:8px;background:var(--chip);font-size:.9em}
+.alertbox.on{background:var(--ice);color:var(--chipink)}
+.wxhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 6px}
+.wxhead h3{margin:0;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.wxlist{max-height:460px}
+.wxrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+.wxrow:last-child{border-bottom:0}
+.wxrow .wn{font-weight:600;line-height:1.3}
+.wxrow .tmp{text-align:right}
+.risk{font-size:.7em;font-weight:700;border-radius:10px;padding:1px 9px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.risk.freeze{background:var(--ice);color:var(--chipink)}.risk.watch{background:var(--amber);color:var(--chipink)}.risk.ok{background:var(--chip);color:var(--ink)}
+.spark{display:block;width:100%;height:44px;margin-top:6px}
+.spark path{fill:none;stroke:var(--blue);stroke-width:2}.spark line{stroke:var(--ice);stroke-width:1;stroke-dasharray:3 3}
+.loadmask{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);font-weight:600}
+.schgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:900px){.schgrid{grid-template-columns:minmax(0,1fr)}}
+.fs{border:1px solid var(--line);border-radius:8px;margin:0 0 10px;padding:8px 12px 10px;min-width:0}
+.fs legend{font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:0 6px}
+.opt{display:inline-flex;align-items:center;gap:6px;margin:4px 14px 4px 0;font-size:.95em}
+.fs input[type=datetime-local],.fs input[type=number],.opt input[type=text],#sch-conn input[type=password],#sch-conn input[type=text]{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:38px}
+.stbig{font-size:1.5em;font-weight:700;line-height:1.2}
+.stbig.on{color:var(--greentext)}
+.warn{color:var(--red);font-weight:600}
+.win{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.win:last-child{border-bottom:0}
+.win .wt{font-weight:600}
+.win .btn{min-height:36px;padding:5px 12px}
+.tag{font-size:.7em;font-weight:700;border-radius:10px;padding:1px 9px;text-transform:uppercase;letter-spacing:.03em;margin-left:6px;vertical-align:middle}
+.tag.active{background:var(--green);color:#10260a}.tag.upcoming{background:var(--ice);color:var(--chipink)}.tag.ended{background:var(--chip);color:var(--muted)}
+#sch-conn ol{margin:6px 0 10px 1.2em;padding:0}#sch-conn li{margin:3px 0}
+@media(max-width:600px){
+  .hin{gap:6px 12px;padding-top:8px;padding-bottom:8px}.hin h1{font-size:1.02em}
+  .hr .hbtn{display:none}.hr{margin-left:0}
+  .proto{font-size:.76em;padding-top:4px;padding-bottom:4px}
+  main{padding-bottom:120px}
+  .timebar{gap:6px 10px;padding-top:8px}
+  .timebar label{display:none}
+  .timebar .btn,.timebar select{min-height:38px}
+  .tnow{order:4;margin-left:auto;min-width:0}.sl{order:5;flex:1 1 100%}
+  .sl input{height:24px}
+}
+@media (prefers-reduced-motion: reduce){.pulse,.dot.live,.flash,section.scr{animation:none}}
+text{font-family:var(--font)}
+</style>
+
+<header class="top">
+  <div class="hin">
+    <h1>Hillsboro Road Cameras</h1>
+    <div class="tabs" role="tablist" aria-label="Screens">
+      <button class="tab" role="tab" id="tab-map" aria-selected="true">Map</button>
+      <button class="tab" role="tab" id="tab-board" aria-selected="false">Board</button>
+      <button class="tab" role="tab" id="tab-storm" aria-selected="false">Storm</button>
+      <button class="tab" role="tab" id="tab-sched" aria-selected="false">Schedule</button>
+    </div>
+    <div class="hr">
+      <span class="pill"><span class="dot live" id="livedot"></span><span id="modetxt">Replay</span></span>
+      <span class="pill" id="wxpill" hidden></span>
+      <span class="pill" id="schpill"></span>
+      <button class="hbtn" id="b-labels" aria-pressed="false">Show names</button>
+      <button class="hbtn" id="b-tv" aria-pressed="false">TV mode</button>
+    </div>
+  </div>
+</header>
+<div class="proto" id="proto"></div>
+
+<div class="loadmask" id="loading">Loading the latest collection...</div>
+<main>
+  <section id="s-map" class="scr" aria-label="Camera map">
+    <div class="mapgrid">
+      <div class="card">
+        <div class="mapwrap">
+          <svg id="map" role="group" aria-label="Map of camera locations"></svg>
+          <div class="zoom"><button id="z-in" aria-label="Zoom in">+</button><button id="z-out" aria-label="Zoom out">&minus;</button><button id="z-fit" aria-label="Fit all cameras" title="Fit all">&#8962;</button></div>
+        </div>
+        <div class="layers">
+          <button class="lay" id="lay-mtemp" aria-pressed="true">Temperatures</button>
+          <button class="lay" id="lay-mrad" aria-pressed="false">Radar</button>
+          <span class="cap">Chips show air temperature, and pavement temperature after a slash when the station has it.</span>
+        </div>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--green)"></i>Updated within 10 min</span>
+          <span><i class="sw" style="background:var(--amber)"></i>10 to 20 min</span>
+          <span><i class="sw" style="background:var(--gray)"></i>Older</span>
+          <span><i class="sw red">&times;</i>No image</span>
+          <span><i class="sw dia" style="background:var(--green)"></i>City building (approximate)</span>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card det" id="det-map"></div>
+        <div class="card"><div class="list" id="camlist" role="list"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-board" class="scr" aria-label="Image board" hidden>
+    <div class="card feat" id="feat"></div>
+    <div class="card strip"><h3 id="film-h">Last 3 hours</h3><div class="film" id="film"></div><p class="cap" id="film-note" style="margin:0"></p></div>
+    <div class="gridbar">
+      <h3>All cameras</h3>
+      <div class="seg" id="tileseg" role="group" aria-label="Image size">
+        <button type="button" data-t="240" aria-pressed="false">Small</button>
+        <button type="button" data-t="320" aria-pressed="true" title="320 to 385 px wide. Native sharpness, up to 1.2x.">Standard</button>
+        <button type="button" data-t="480" aria-pressed="false" title="480 to 576 px wide. Enlarged 1.5x to 1.8x: easier to read from a distance, softer.">Large</button>
+      </div>
+      <span class="cap">Each image is the camera's whole 320 x 240 picture. TripCheck's title and credit bars are removed so the road fills the frame.</span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+  <section id="s-storm" class="scr" aria-label="Storm tracking" hidden>
+    <div class="stormgrid">
+      <div class="card">
+        <div class="mapwrap">
+          <svg id="smap" role="img" aria-label="Regional map with radar, road temperatures and cameras"></svg>
+          <div class="stamp" id="sstamp"></div>
+        </div>
+        <div class="layers">
+          <button class="lay" id="lay-radar" aria-pressed="true">Radar</button>
+          <button class="lay" id="lay-temps" aria-pressed="true">Temperatures</button>
+          <button class="lay" id="lay-cams" aria-pressed="true">Cameras</button>
+          <span class="seg" id="viewseg" role="group" aria-label="Map area"><button type="button" data-v="region" aria-pressed="true">Region</button><button type="button" data-v="metro" aria-pressed="false">Metro</button><button type="button" data-v="city" aria-pressed="false">Hillsboro</button></span>
+        </div>
+        <div class="legend rleg">
+          <span><b>Radar</b></span>
+          <span><i style="background:#7fd6e8"></i>Very light</span><span><i style="background:#3fb06b"></i>Light</span><span><i style="background:#f2e24a"></i>Moderate</span><span><i style="background:#f29a2e"></i>Heavy</span><span><i style="background:#d6372f"></i>Very heavy</span>
+          <span class="note">Radar shows how much is falling, not whether it is rain or snow. Read it with the temperatures: echoes over a blue chip (32F or colder) are snow or ice, over amber (33 to 36F) is a rain and snow mix risk. Chips show air, and pavement after a slash when the station has it.</span>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card det" id="wx-now"></div>
+        <div class="card">
+          <div class="wxhead"><h3>Road weather stations</h3><span class="seg" id="wxsort" role="group" aria-label="Sort stations"><button type="button" data-s="near" aria-pressed="true">Nearest</button><button type="button" data-s="cold" aria-pressed="false">Coldest</button></span></div>
+          <div class="list wxlist" id="wxlist"></div>
+          <div style="padding:6px 12px 12px"><button class="btn alt" id="wxall"></button><p class="cap" style="margin:8px 0 0">Latest readings from ODOT and National Weather Service stations. Not tied to the time bar. Blue and amber are rules of thumb: pavement can be colder than the air.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="s-sched" class="scr" aria-label="Storm collection schedule" hidden>
+    <div class="schgrid">
+      <div class="side">
+        <div class="card det" id="sch-status"></div>
+        <div class="card det">
+          <h2>Start a storm window</h2>
+          <p class="cap" style="margin:4px 0 10px">Collection runs every 5 minutes inside a window and stops by itself when the window ends. Outside a window nothing runs.</p>
+          <fieldset class="fs"><legend>Start</legend>
+            <label class="opt"><input type="radio" name="sch-when" value="now" checked> Right now</label>
+            <label class="opt"><input type="radio" name="sch-when" value="at"> At a set time (Pacific)</label>
+            <input type="datetime-local" id="sch-at" aria-label="Start date and time, Pacific time" disabled>
+          </fieldset>
+          <fieldset class="fs"><legend>Run for</legend>
+            <div class="seg" id="sch-chips" role="group" aria-label="Quick lengths"><button type="button" data-h="12" aria-pressed="false">12 h</button><button type="button" data-h="24" aria-pressed="false">24 h</button><button type="button" data-h="48" aria-pressed="true">48 h</button><button type="button" data-h="72" aria-pressed="false">72 h</button></div>
+            <label class="opt">or hours <input type="number" id="sch-hours" min="1" max="168" step="1" value="48" style="width:5em"> (1 to 168)</label>
+          </fieldset>
+          <label class="opt" style="display:block;margin:8px 0">Name <input type="text" id="sch-label" maxlength="60" placeholder="Wednesday snow event" style="width:100%;max-width:340px"></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" id="sch-go">Start collecting</button><span class="cap" id="sch-msg" role="status"></span></div>
+          <label class="opt" style="display:block;margin-top:14px"><input type="checkbox" id="sch-watch"> Also take one snapshot an hour when no storm window is open</label>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card det"><h2>Windows</h2><div id="sch-list" class="schlist"></div></div>
+        <div class="card det" id="sch-conn"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="timebar" aria-label="Time controls">
+  <button class="btn" id="b-play" aria-label="Play or pause replay">Play</button>
+  <button class="btn alt" id="b-live" title="Jump to the newest images">Latest</button>
+  <label class="cap" for="sel-speed">Speed</label>
+  <select id="sel-speed"><option value="1">Real time</option><option value="10">10x</option><option value="30">30x</option><option value="60" selected>60x</option><option value="120">120x</option><option value="300">300x</option></select>
+  <div class="sl">
+    <input type="range" id="slider" min="0" max="100" step="1" value="100" aria-label="Time, up to 3 hours back">
+    <div class="ends"><span id="t-start"></span><span id="t-end"></span></div>
+  </div>
+  <div class="tnow" id="t-now"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="citysym" viewBox="0 0 100 100"></symbol></defs></svg>
+
+<script>
+/* Rolling image memory. Keeps up to WIN seconds of images per camera, measured back from that camera's newest image. */
+var Store=(function(){
+  var WIN=3*3600, f={}, onRemove=null;
+  function list(id){return f[id]||(f[id]=[])}
+  function add(id,ts,src){
+    var a=list(id),j=a.length;
+    while(j>0&&a[j-1][0]>ts)j--;
+    if(j>0&&a[j-1][0]===ts)return null;
+    a.splice(j,0,[ts,src]);
+    var cut=a[a.length-1][0]-WIN,removed=[];
+    while(a.length&&a[0][0]<cut){removed.push(a.shift())}
+    if(removed.length&&onRemove)removed.forEach(function(r){onRemove(id,r)});
+    return {removed:removed};
+  }
+  function at(id,t){
+    var a=f[id];if(!a||!a.length||a[0][0]>t)return null;
+    var lo=0,hi=a.length-1;
+    while(lo<hi){var m=(lo+hi+1)>>1;if(a[m][0]<=t)lo=m;else hi=m-1}
+    return a[lo];
+  }
+  function bounds(){
+    var mn=Infinity,mx=0;
+    for(var k in f){var a=f[k];if(!a.length)continue;if(a[0][0]<mn)mn=a[0][0];if(a[a.length-1][0]>mx)mx=a[a.length-1][0]}
+    if(!mx)return {min:0,max:0};
+    return {min:Math.max(mn,mx-WIN),max:mx};
+  }
+  function count(){var n=0;for(var k in f)n+=f[k].length;return n}
+  return {add:add,at:at,list:list,bounds:bounds,count:count,WIN:WIN,setOnRemove:function(fn){onRemove=fn}};
+})();
+if(typeof module!=='undefined')module.exports=Store;
+
+</script>
+<script>
+var DATA={"cams":[{"id":740,"n":"Cornell Rd at 25th Ave","s":"Cornell at 25th","o":"Washington County","lat":45.53066,"lon":-122.9569},{"id":739,"n":"Cornell Rd at Brookwood Pkwy","s":"Cornell at Brookwood","o":"Washington County","lat":45.5327,"lon":-122.93805},{"id":744,"n":"Brookwood Blvd at Main St","s":"Brookwood at Main","o":"Washington County","lat":45.52005,"lon":-122.93695},{"id":1481,"n":"River Rd at Davis Rd","s":"River at Davis","o":"Washington County","lat":45.49405,"lon":-122.93993},{"id":960,"n":"OR8 (TV Hwy) at Brookwood Ave","s":"OR8 (TV Hwy) at Brookwood","o":"ODOT","lat":45.50061,"lon":-122.93121},{"id":785,"n":"Brookwood Blvd at Evergreen","s":"Brookwood at Evergreen","o":"Washington County","lat":45.55077,"lon":-122.92618},{"id":738,"n":"Cornell Rd at Century Blvd","s":"Cornell at Century","o":"Washington County","lat":45.53424,"lon":-122.91197},{"id":784,"n":"Brookwood Blvd at Huffman","s":"Brookwood at Huffman","o":"Washington County","lat":45.55693,"lon":-122.92658},{"id":783,"n":"Brookwood Blvd at US26","s":"Brookwood at US26","o":"Washington County","lat":45.56319,"lon":-122.92599},{"id":743,"n":"Cornelius Pass Rd at Baseline Rd","s":"Cornelius Pass at Baseline","o":"Washington County","lat":45.5152,"lon":-122.90129},{"id":994,"n":"Cornelius Pass Rd at Frances St","s":"Cornelius Pass at Frances","o":"Washington County","lat":45.50867,"lon":-122.90204},{"id":1005,"n":"Evergreen Blvd at 229th Ave","s":"Evergreen at 229th","o":"Washington County","lat":45.55036,"lon":-122.90993},{"id":995,"n":"Cornelius Pass Rd at Wilkins St","s":"Cornelius Pass at Wilkins","o":"Washington County","lat":45.52699,"lon":-122.89968},{"id":602,"n":"Cornelius Pass Rd at Cornell","s":"Cornelius Pass at Cornell","o":"Washington County","lat":45.5397,"lon":-122.90052},{"id":826,"n":"Cornelius Pass Rd at Evergreen Pkwy","s":"Cornelius Pass at Evergreen","o":"Washington County","lat":45.54637,"lon":-122.89994},{"id":944,"n":"OR8 at Cornelius Pass Rd","s":"OR8 at Cornelius Pass","o":"ODOT","lat":45.49738,"lon":-122.90235},{"id":993,"n":"Cornelius Pass Rd at Tualatin Valley Hwy","s":"Cornelius Pass at TV Hwy","o":"Washington County","lat":45.49749,"lon":-122.90218},{"id":328,"n":"US26 at Cornelius Pass","s":"US26 at Cornelius Pass","o":"ODOT","lat":45.55357,"lon":-122.9006},{"id":1435,"n":"Cornelius Pass Rd at Blanton St","s":"Cornelius Pass at Blanton","o":"Washington County","lat":45.49262,"lon":-122.90026},{"id":1475,"n":"Cornelius Pass Rd at Kinnaman St","s":"Cornelius Pass at Kinnaman","o":"Washington County","lat":45.48875,"lon":-122.90218},{"id":825,"n":"Cornell Rd at Rock Creek Tr","s":"Cornell at Rock Creek","o":"Washington County","lat":45.53872,"lon":-122.89072},{"id":1476,"n":"209th Ave at Kinnaman Rd","s":"209th at Kinnaman","o":"Washington County","lat":45.48944,"lon":-122.89222},{"id":604,"n":"Evergreen Pkwy at Rock Creek Trail","s":"Evergreen at Rock Creek","o":"Washington County","lat":45.54538,"lon":-122.88588},{"id":925,"n":"Cornell Rd at Stucki Ave","s":"Cornell at Stucki","o":"Washington County","lat":45.53456,"lon":-122.87782},{"id":874,"n":"Evergreen Pkwy at Stucki Ave","s":"Evergreen at Stucki","o":"Washington County","lat":45.54069,"lon":-122.87433},{"id":606,"n":"185th Ave at Walker Rd","s":"185th at Walker","o":"Washington County","lat":45.5278,"lon":-122.86727},{"id":623,"n":"185th Ave at Baseline Rd","s":"185th at Baseline","o":"Washington County","lat":45.51578,"lon":-122.86768},{"id":327,"n":"US26 at 185th Street","s":"US26 at 185th","o":"ODOT","lat":45.54143,"lon":-122.8678},{"id":582,"n":"185th Ave at Evergreen Pkwy","s":"185th at Evergreen","o":"Washington County","lat":45.53829,"lon":-122.86729},{"id":605,"n":"185th Ave at Cornell Rd","s":"185th at Cornell","o":"Washington County","lat":45.53404,"lon":-122.86776}],"sites":[{"n":"Civic Center and Willey Plaza","lat":45.52261,"lon":-122.98963},{"n":"Shute Park Library","lat":45.5145,"lon":-122.97409},{"n":"Main Library","lat":45.54086,"lon":-122.93776}],"geo":{"roads":[{"l":"US 26","c":"hwy","p":[[-122.7438,45.5078],[-122.7457,45.5072],[-122.7535,45.5059],[-122.7576,45.5056],[-122.7616,45.5056],[-122.7658,45.5058],[-122.7728,45.5068],[-122.7796,45.5087],[-122.798,45.5154],[-122.8211,45.5243],[-122.8676,45.5417],[-122.8991,45.5536],[-122.9019,45.5548],[-122.9068,45.5565],[-123.0584,45.6135],[-123.0616,45.6146],[-123.0649,45.6152],[-123.0663,45.6157],[-123.0674,45.6162],[-123.0703,45.6181]]},{"l":"US 26","c":"hwy","p":[[-122.7438,45.5079],[-122.7463,45.5072],[-122.7531,45.5061],[-122.7565,45.5058],[-122.761,45.5057],[-122.7682,45.5062],[-122.7729,45.507],[-122.7784,45.5085],[-122.7898,45.5125],[-122.8208,45.5244],[-122.8275,45.5268],[-122.8368,45.5305],[-122.8423,45.5324],[-122.8584,45.5385],[-122.8638,45.5407],[-122.8674,45.5419],[-123.0367,45.6057],[-123.0703,45.6181]]},{"l":"OR 8","c":"hwy","p":[[-122.9739,45.5187],[-122.9739,45.52],[-122.9966,45.5202],[-122.9979,45.52],[-123.0071,45.5199]]},{"l":"OR 8","c":"hwy","p":[[-122.9739,45.5187],[-123.0015,45.5189],[-123.0071,45.5199]]},{"l":"1st Ave","c":"art","p":[[-122.9898,45.5201],[-122.9899,45.5143],[-122.9909,45.5128]]},{"l":"Oak St","c":"art","p":[[-122.9898,45.5188],[-122.9739,45.5187]]},{"l":"Oak St","c":"art","p":[[-122.9898,45.5188],[-123.0015,45.5189],[-123.0071,45.5199]]},{"l":"10th Ave","c":"art","p":[[-122.9739,45.52],[-122.974,45.5134],[-122.9738,45.5126],[-122.9729,45.5117]]},{"l":"Baseline Rd","c":"art","p":[[-122.9898,45.5201],[-122.9739,45.52]]},{"l":"Baseline Rd","c":"art","p":[[-122.9898,45.5201],[-122.9966,45.5202],[-122.9979,45.52],[-123.0071,45.5199]]},{"l":"OR 8","c":"hwy","p":[[-123.0295,45.52],[-123.0071,45.5199]]},{"l":"OR 8","c":"hwy","p":[[-122.7457,45.5074],[-122.7461,45.507],[-122.7468,45.5053],[-122.7478,45.5042],[-122.7524,45.5016],[-122.7533,45.5007],[-122.7548,45.4985],[-122.7556,45.4979],[-122.7566,45.4976],[-122.7589,45.4977],[-122.7613,45.4986],[-122.7657,45.4983],[-122.7674,45.4979],[-122.7732,45.4948],[-122.7756,45.494],[-122.7815,45.4931],[-122.79,45.4913],[-122.7963,45.4897],[-122.8034,45.4885],[-122.8121,45.4882],[-122.8297,45.4899],[-122.8324,45.4903],[-122.8382,45.4917],[-122.8407,45.4918],[-122.845,45.4915],[-122.8645,45.4935],[-122.8666,45.4941],[-122.8701,45.4941],[-122.8865,45.4958],[-122.8993,45.4974],[-122.9004,45.4973],[-122.9047,45.4977],[-122.9492,45.5023],[-122.9525,45.5032],[-122.9718,45.5111],[-122.9729,45.5117],[-122.9738,45.5126],[-122.974,45.5134],[-122.9739,45.5187]]},{"l":"Hillsboro Hwy","c":"art","p":[[-122.9635,45.3467],[-122.9639,45.3482],[-122.9647,45.3494],[-122.9646,45.3513],[-122.9643,45.3526],[-122.9646,45.3528],[-122.9651,45.3528],[-122.9658,45.3524],[-122.9663,45.3527],[-122.9654,45.354],[-122.9645,45.3546],[-122.9613,45.3588],[-122.9579,45.3605],[-122.956,45.3612],[-122.9557,45.3615],[-122.9558,45.3622],[-122.956,45.3623],[-122.9569,45.3624],[-122.9578,45.3622],[-122.9582,45.3625],[-122.9582,45.3635],[-122.9571,45.3645],[-122.957,45.3649],[-122.9577,45.3654],[-122.9581,45.3663],[-122.9581,45.3674],[-122.9586,45.3686],[-122.9585,45.3694],[-122.9582,45.3701],[-122.956,45.3718],[-122.955,45.3737],[-122.9548,45.3746],[-122.9528,45.3757],[-122.951,45.38],[-122.9499,45.381],[-122.9496,45.384],[-122.9498,45.3893],[-122.9493,45.3905],[-122.9491,45.3908],[-122.945,45.3931],[-122.9401,45.3924],[-122.9394,45.3925],[-122.9318,45.3974],[-122.931,45.3988],[-122.9302,45.3996],[-122.9374,45.4],[-122.9378,45.4002],[-122.9386,45.4014],[-122.9414,45.4039],[-122.9481,45.4096],[-122.9493,45.4105],[-122.9502,45.4109],[-122.9518,45.4112],[-122.9598,45.4113],[-122.9601,45.4115],[-122.9603,45.4118],[-122.9603,45.4176],[-122.9608,45.4185],[-122.9602,45.4219],[-122.9603,45.4244],[-122.9635,45.4308],[-122.9646,45.4319],[-122.9675,45.434],[-122.9687,45.4344],[-122.9741,45.4353],[-122.9795,45.4391],[-122.9839,45.4413],[-122.985,45.4424],[-122.9856,45.4438],[-122.9862,45.4446],[-122.9908,45.4496],[-122.9912,45.4506],[-122.9912,45.4562],[-122.9924,45.4612],[-122.9927,45.4648],[-122.9927,45.479],[-122.9923,45.4804],[-122.9913,45.4822],[-122.991,45.4841],[-122.991,45.4927],[-122.992,45.4957],[-122.9922,45.4972],[-122.991,45.501],[-122.9909,45.5018],[-122.9909,45.5128]]},{"l":"Farmington Rd","c":"art","p":[[-122.9853,45.4429],[-122.9848,45.443],[-122.9811,45.4453],[-122.9725,45.4495],[-122.9653,45.4521],[-122.9639,45.4524],[-122.9624,45.4524],[-122.9507,45.4494],[-122.9326,45.4468],[-122.9311,45.4467],[-122.9297,45.4469],[-122.9228,45.4482],[-122.9179,45.4502],[-122.9152,45.451],[-122.9139,45.4512],[-122.9108,45.4512],[-122.9028,45.4552],[-122.9024,45.4556],[-122.901,45.4593],[-122.9002,45.4606],[-122.8983,45.4625],[-122.8925,45.4667],[-122.8909,45.4676],[-122.8881,45.4682],[-122.8839,45.4696],[-122.8765,45.4712],[-122.8733,45.4721],[-122.8711,45.4731],[-122.8675,45.4753],[-122.8547,45.481],[-122.8515,45.4818],[-122.847,45.4833],[-122.8454,45.4836],[-122.8371,45.4844],[-122.8172,45.487],[-122.8152,45.4874],[-122.808,45.4874],[-122.804,45.4869]]},{"l":"OR 10","c":"hwy","p":[[-122.7437,45.4871],[-122.7454,45.487],[-122.7488,45.4861],[-122.7547,45.4861],[-122.7739,45.4865],[-122.8003,45.4865],[-122.808,45.4874],[-122.8152,45.4874],[-122.8172,45.487],[-122.8371,45.4844],[-122.8454,45.4836],[-122.847,45.4833],[-122.8515,45.4818],[-122.8556,45.4807],[-122.8675,45.4753],[-122.8711,45.4731],[-122.8733,45.4721],[-122.8765,45.4712],[-122.8839,45.4696],[-122.8881,45.4682],[-122.8909,45.4676],[-122.8925,45.4667],[-122.8983,45.4625],[-122.9002,45.4606],[-122.901,45.4593],[-122.9024,45.4556],[-122.9028,45.4552],[-122.9108,45.4512],[-122.9148,45.4511],[-122.9179,45.4502],[-122.9228,45.4482],[-122.9297,45.4469],[-122.9316,45.4467],[-122.9507,45.4494],[-122.9624,45.4524],[-122.9639,45.4524],[-122.9653,45.4521],[-122.9725,45.4495],[-122.9811,45.4453],[-122.9848,45.443],[-122.9853,45.4429]]},{"l":"US 26","c":"hwy","p":[[-122.7438,45.5078],[-122.7457,45.5072],[-122.7535,45.5059],[-122.7576,45.5056],[-122.7616,45.5056],[-122.7658,45.5058],[-122.7728,45.5068],[-122.7796,45.5087],[-122.798,45.5154],[-122.8211,45.5243],[-122.8676,45.5417],[-122.8991,45.5536],[-122.9019,45.5548],[-122.9068,45.5565],[-123.0584,45.6135],[-123.0616,45.6146],[-123.0649,45.6152],[-123.0663,45.6157],[-123.0674,45.6162],[-123.0703,45.6181]]},{"l":"US 26","c":"hwy","p":[[-123.0703,45.6181],[-123.0367,45.6057],[-122.8674,45.5419],[-122.8638,45.5407],[-122.8584,45.5385],[-122.8423,45.5324],[-122.8368,45.5305],[-122.8275,45.5268],[-122.8208,45.5244],[-122.7898,45.5125],[-122.7781,45.5084]]},{"l":"US 26","c":"hwy","p":[[-123.0703,45.6181],[-123.0674,45.6162],[-123.0663,45.6157],[-123.0649,45.6152],[-123.0616,45.6146],[-123.0584,45.6135],[-122.9068,45.5565],[-122.9019,45.5548],[-122.8991,45.5536],[-122.8383,45.5308],[-122.7948,45.5142],[-122.7796,45.5087],[-122.7733,45.5069]]},{"l":"OR 8","c":"hwy","p":[[-123.0435,45.5201],[-123.0071,45.5199]]},{"l":"US 26","c":"hwy","p":[[-122.7438,45.5079],[-122.7463,45.5072],[-122.7531,45.5061],[-122.7565,45.5058],[-122.761,45.5057],[-122.7682,45.5062],[-122.7729,45.507],[-122.7784,45.5085],[-122.7898,45.5125],[-122.8208,45.5244],[-122.8275,45.5268],[-122.8368,45.5305],[-122.8423,45.5324],[-122.8584,45.5385],[-122.8638,45.5407],[-122.8674,45.5419],[-123.0367,45.6057],[-123.0703,45.6181]]},{"l":"Baseline Rd","c":"art","p":[[-123.0707,45.5201],[-123.0295,45.52]]},{"l":"OR 219","c":"hwy","p":[[-122.9626,45.3464],[-122.9635,45.3467],[-122.9639,45.3482],[-122.9647,45.3494],[-122.9646,45.3513],[-122.9643,45.3526],[-122.9646,45.3528],[-122.9651,45.3528],[-122.9658,45.3524],[-122.9663,45.3527],[-122.9654,45.354],[-122.9645,45.3546],[-122.9613,45.3588],[-122.9579,45.3605],[-122.956,45.3612],[-122.9557,45.3615],[-122.9558,45.3622],[-122.956,45.3623],[-122.9569,45.3624],[-122.9578,45.3622],[-122.9582,45.3625],[-122.9582,45.3635],[-122.9571,45.3645],[-122.957,45.3649],[-122.9577,45.3654],[-122.9581,45.3663],[-122.9581,45.3674],[-122.9586,45.3686],[-122.9585,45.3694],[-122.9582,45.3701],[-122.956,45.3718],[-122.955,45.3737],[-122.9548,45.3746],[-122.9528,45.3757],[-122.951,45.38],[-122.9499,45.381],[-122.9496,45.384],[-122.9498,45.3893],[-122.9493,45.3905],[-122.9491,45.3908],[-122.945,45.3931],[-122.9401,45.3924],[-122.9394,45.3925],[-122.9318,45.3974],[-122.931,45.3988],[-122.9302,45.3996],[-122.9374,45.4],[-122.9378,45.4002],[-122.9386,45.4014],[-122.9414,45.4039],[-122.9481,45.4096],[-122.9493,45.4105],[-122.9502,45.4109],[-122.9518,45.4112],[-122.9598,45.4113],[-122.9601,45.4115],[-122.9603,45.4118],[-122.9603,45.4176],[-122.9608,45.4185],[-122.9602,45.4219],[-122.9603,45.4244],[-122.9635,45.4308],[-122.9646,45.4319],[-122.9675,45.434],[-122.9687,45.4344],[-122.9741,45.4353],[-122.9795,45.4391],[-122.9839,45.4413],[-122.985,45.4424],[-122.9856,45.4438],[-122.9862,45.4446],[-122.9882,45.4466],[-122.991,45.45],[-122.9912,45.4506],[-122.9912,45.4562],[-122.9926,45.4624],[-122.9927,45.479],[-122.9923,45.4804],[-122.9913,45.4822],[-122.991,45.4841],[-122.991,45.4927],[-122.992,45.4957],[-122.9922,45.4972],[-122.991,45.501],[-122.9909,45.5018],[-122.991,45.5116],[-122.9909,45.5128],[-122.9899,45.5143],[-122.9898,45.5201]]},{"l":"Baseline Rd","c":"art","p":[[-123.0295,45.52],[-123.0595,45.5201]]},{"l":"OR 8","c":"hwy","p":[[-122.8108,45.4883],[-122.8121,45.4882],[-122.8148,45.4884],[-122.8297,45.4899],[-122.8324,45.4903],[-122.8382,45.4917],[-122.8407,45.4918],[-122.845,45.4915],[-122.8645,45.4935],[-122.8666,45.4941],[-122.8701,45.4941],[-122.8865,45.4958],[-122.8993,45.4974],[-122.9015,45.4974],[-122.9229,45.4996]]},{"l":"OR 8","c":"hwy","p":[[-122.974,45.5134],[-122.9739,45.5128],[-122.9734,45.5121],[-122.9718,45.5111],[-122.951,45.5027],[-122.9492,45.5023],[-122.9229,45.4996]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9796,45.5355],[-122.9796,45.5363]]},{"l":"Brookwood","c":"art","p":[[-122.9306,45.4943],[-122.9306,45.4941]]},{"l":"Davis Rd","c":"art","p":[[-122.9411,45.4931],[-122.941,45.4937],[-122.94,45.4939]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9703,45.5732],[-122.9705,45.5658],[-122.9706,45.5655],[-122.9726,45.5638],[-122.9735,45.55]]},{"l":"River Rd","c":"art","p":[[-122.9525,45.5007],[-122.9526,45.5005]]},{"l":"209th Ave","c":"art","p":[[-122.8917,45.532],[-122.8917,45.5303],[-122.8922,45.5296]]},{"l":"Cornell Rd","c":"art","p":[[-122.9234,45.5336],[-122.9209,45.5338]]},{"l":"209th Ave","c":"art","p":[[-122.8923,45.5231],[-122.8922,45.52]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9703,45.5764],[-122.9703,45.5732]]},{"l":"Baseline Rd","c":"art","p":[[-122.8477,45.5124],[-122.8483,45.5125]]},{"l":"Main St","c":"art","p":[[-123.0009,45.5226],[-123.0013,45.5225],[-123.0023,45.5217],[-123.0029,45.5191]]},{"l":"Walker Rd","c":"art","p":[[-122.847,45.5192],[-122.8499,45.5203],[-122.857,45.5236],[-122.8627,45.5254],[-122.8656,45.5269],[-122.8714,45.5294],[-122.8785,45.532],[-122.8794,45.5327],[-122.8796,45.5331]]},{"l":"Cornelius Pass Rd","c":"art","p":[[-122.8992,45.559],[-122.8927,45.5683],[-122.8876,45.5732],[-122.8835,45.5756],[-122.876,45.5796],[-122.8739,45.5809],[-122.8724,45.5821],[-122.8675,45.5886],[-122.8668,45.5904],[-122.8667,45.5919]]},{"l":"Brookwood","c":"art","p":[[-122.9367,45.5199],[-122.9368,45.5247],[-122.9376,45.5278],[-122.9375,45.5314],[-122.9379,45.5326],[-122.941,45.5357],[-122.9414,45.5366],[-122.9411,45.5376],[-122.9396,45.5389]]},{"l":"209th Ave","c":"art","p":[[-122.8915,45.5006],[-122.8919,45.4898],[-122.8935,45.4822],[-122.8951,45.473],[-122.8949,45.4719],[-122.8935,45.4679],[-122.8927,45.4665]]},{"l":"Century Blvd","c":"art","p":[[-122.9068,45.5734],[-122.9093,45.5701],[-122.9096,45.5694],[-122.9096,45.5688],[-122.9102,45.5677]]},{"l":"Century Blvd","c":"art","p":[[-122.916,45.5123],[-122.9162,45.5108],[-122.9162,45.5084],[-122.9166,45.5072],[-122.9166,45.5045],[-122.9169,45.5028],[-122.917,45.5003],[-122.9174,45.4991]]},{"l":"Davis Rd","c":"art","p":[[-122.9306,45.4941],[-122.9365,45.4941],[-122.94,45.4938]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.862,45.5354],[-122.8617,45.5355],[-122.8598,45.5382],[-122.8592,45.5382],[-122.8585,45.5379]]},{"l":"Cornell Rd","c":"art","p":[[-122.926,45.5336],[-122.9234,45.5336]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9708,45.5799],[-122.9704,45.5792],[-122.9703,45.5764]]},{"l":"Walker Rd","c":"art","p":[[-122.7793,45.4935],[-122.7803,45.495],[-122.7824,45.4961],[-122.7838,45.4966],[-122.7858,45.4967],[-122.7874,45.4984],[-122.7898,45.4985],[-122.7943,45.4995],[-122.7977,45.5005],[-122.7985,45.5005],[-122.8004,45.4999],[-122.8014,45.4999],[-122.8127,45.5038],[-122.8173,45.506],[-122.8235,45.5119],[-122.8244,45.5125],[-122.8261,45.513],[-122.8273,45.5131],[-122.8279,45.5135],[-122.8367,45.5158],[-122.847,45.5192]]},{"l":"Cornell Rd","c":"art","p":[[-122.8675,45.5342],[-122.8766,45.5342],[-122.8778,45.5345],[-122.8858,45.5376],[-122.8902,45.5386],[-122.8954,45.5397],[-122.9002,45.5395]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.8154,45.547],[-122.8267,45.547]]},{"l":"Cornelius Pass Rd","c":"art","p":[[-122.8992,45.559],[-122.8994,45.559],[-122.8996,45.5586]]},{"l":"Brookwood","c":"art","p":[[-122.9306,45.4941],[-122.9306,45.4881],[-122.9304,45.4843]]},{"l":"229th Ave","c":"art","p":[[-122.9136,45.4693],[-122.9136,45.4765],[-122.9138,45.4795],[-122.9138,45.4803],[-122.9135,45.4808],[-122.9136,45.4862],[-122.9128,45.4863],[-122.9126,45.4865],[-122.9121,45.5023]]},{"l":"Shute Rd","c":"art","p":[[-122.9262,45.5641],[-122.9263,45.5509]]},{"l":"Oak Hills Dr","c":"art","p":[[-122.8346,45.5362],[-122.8356,45.536],[-122.8355,45.5358]]},{"l":"Baseline Rd","c":"art","p":[[-122.8393,45.5126],[-122.8477,45.5124]]},{"l":"229th Ave","c":"art","p":[[-122.9114,45.5322],[-122.912,45.5311],[-122.9119,45.5247]]},{"l":"Oak Hills Dr","c":"art","p":[[-122.8321,45.5365],[-122.8321,45.5363]]},{"l":"Brookwood","c":"art","p":[[-122.9395,45.539],[-122.9383,45.5402],[-122.9376,45.5412],[-122.9372,45.5432],[-122.9366,45.5443],[-122.9361,45.5448],[-122.9347,45.5457],[-122.9321,45.5463]]},{"l":"Brookwood","c":"art","p":[[-122.933,45.5083],[-122.9318,45.5082],[-122.9313,45.5076],[-122.9309,45.5005]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9699,45.5764],[-122.9703,45.5764]]},{"l":"Cornell Rd","c":"art","p":[[-122.9339,45.5336],[-122.9292,45.5336]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.9811,45.55],[-122.9843,45.5499]]},{"l":"River Rd","c":"art","p":[[-122.9521,45.5004],[-122.9526,45.5005]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9796,45.5341],[-122.9796,45.5355]]},{"l":"Brookwood","c":"art","p":[[-122.9308,45.5003],[-122.9307,45.4976]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9796,45.5363],[-122.9797,45.55]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9796,45.5355],[-122.981,45.5355]]},{"l":"Brookwood","c":"art","p":[[-122.933,45.5083],[-122.9329,45.508],[-122.9331,45.5072],[-122.9337,45.5072],[-122.934,45.5065]]},{"l":"185th Ave","c":"art","p":[[-122.8675,45.52],[-122.8676,45.5811]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9703,45.5732],[-122.9699,45.5764]]},{"l":"209th Ave","c":"art","p":[[-122.8918,45.5079],[-122.892,45.508],[-122.892,45.5094],[-122.8931,45.5094],[-122.8931,45.5104],[-122.8922,45.5112],[-122.892,45.5116]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.9628,45.5501],[-122.9662,45.55]]},{"l":"Davis Rd","c":"art","p":[[-122.9191,45.4941],[-122.9306,45.4941]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.9263,45.5509],[-122.9122,45.5509],[-122.9109,45.5507],[-122.9091,45.55],[-122.906,45.5471],[-122.9047,45.5466],[-122.8963,45.5463],[-122.8943,45.5458],[-122.8871,45.5456],[-122.8751,45.5412],[-122.8739,45.5404],[-122.8732,45.5392],[-122.8719,45.5384],[-122.8701,45.5381],[-122.8675,45.5382],[-122.8652,45.5379],[-122.8628,45.5365],[-122.862,45.5354]]},{"l":"185th Ave","c":"art","p":[[-122.8675,45.52],[-122.8674,45.5008],[-122.8672,45.4999],[-122.8672,45.4847],[-122.8675,45.4789],[-122.8675,45.4665],[-122.8665,45.4651],[-122.8665,45.4645],[-122.8669,45.4638],[-122.8675,45.4633],[-122.8675,45.4594],[-122.8679,45.4587]]},{"l":"Davis Rd","c":"art","p":[[-122.8608,45.4754],[-122.8527,45.4755],[-122.8524,45.4757],[-122.8426,45.4757],[-122.8407,45.4749],[-122.8385,45.4751]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.8999,45.5484],[-122.9018,45.5487]]},{"l":"Cornelius Pass Rd","c":"art","p":[[-122.8996,45.5187],[-122.9,45.5249],[-122.9,45.5264],[-122.8996,45.5271],[-122.8996,45.5344],[-122.9003,45.5372],[-122.8999,45.5497],[-122.9009,45.5552],[-122.9009,45.5565],[-122.8996,45.5586]]},{"l":"River Rd","c":"art","p":[[-122.9526,45.5005],[-122.9528,45.5003]]},{"l":"River Rd","c":"art","p":[[-122.969,45.5099],[-122.9679,45.5084],[-122.9637,45.5049],[-122.9572,45.5017],[-122.9521,45.4983],[-122.95,45.4978],[-122.9455,45.4972],[-122.9431,45.4965]]},{"l":"Cornell Rd","c":"art","p":[[-122.9209,45.5338],[-122.9149,45.534],[-122.9098,45.5344],[-122.9078,45.5351],[-122.9069,45.5358],[-122.9052,45.5377]]},{"l":"Oak Hills Dr","c":"art","p":[[-122.8311,45.5366],[-122.8311,45.5364]]},{"l":"Davis Rd","c":"art","p":[[-122.8385,45.4751],[-122.8388,45.4749]]},{"l":"Brookwood","c":"art","p":[[-122.9321,45.5463],[-122.9297,45.5468],[-122.9289,45.5471],[-122.9277,45.5479],[-122.9265,45.5494],[-122.9263,45.5509]]},{"l":"Shute Rd","c":"art","p":[[-122.926,45.5336],[-122.9261,45.5474],[-122.9265,45.5479],[-122.9273,45.5483]]},{"l":"Main St","c":"art","p":[[-122.9898,45.5227],[-123.0002,45.5228],[-123.0009,45.5226],[-123.0011,45.5228],[-123.0024,45.5228]]},{"l":"Cornell Rd","c":"art","p":[[-122.937,45.5329],[-122.9333,45.5337],[-122.9234,45.5337],[-122.912,45.5343]]},{"l":"Brookwood","c":"art","p":[[-122.9366,45.5167],[-122.9345,45.5167]]},{"l":"Cornelius Pass Rd","c":"art","p":[[-122.8996,45.5586],[-122.8992,45.559]]},{"l":"Brookwood","c":"art","p":[[-122.9396,45.5389],[-122.9395,45.539]]},{"l":"Brookwood","c":"art","p":[[-122.9395,45.539],[-122.9396,45.5389]]},{"l":"Main St","c":"art","p":[[-122.9898,45.5227],[-122.9804,45.5226],[-122.9634,45.5213],[-122.9584,45.5211],[-122.9545,45.5208],[-122.9498,45.5199],[-122.9367,45.5199]]},{"l":"Baseline Rd","c":"art","p":[[-122.8359,45.5156],[-122.8373,45.5145],[-122.8383,45.5145]]},{"l":"Davis Rd","c":"art","p":[[-122.8267,45.4737],[-122.8287,45.4746],[-122.8321,45.4746],[-122.8333,45.4751],[-122.8385,45.4751]]},{"l":"Baseline Rd","c":"art","p":[[-122.902,45.5155],[-122.9035,45.516],[-122.9094,45.5194],[-122.9132,45.5204]]},{"l":"Brookwood","c":"art","p":[[-122.9321,45.5463],[-122.932,45.5463]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.9528,45.5485],[-122.9528,45.5512]]},{"l":"Cornell Rd","c":"art","p":[[-122.7645,45.5297],[-122.786,45.5258],[-122.794,45.5265],[-122.7959,45.5271],[-122.7974,45.5268],[-122.8005,45.527],[-122.8084,45.5249],[-122.8106,45.5249],[-122.8121,45.5254],[-122.8173,45.5281],[-122.8232,45.5305],[-122.8257,45.5307],[-122.8293,45.5317],[-122.831,45.5319],[-122.8352,45.5319],[-122.8362,45.5317],[-122.8374,45.5311]]},{"l":"Cornelius Pass Rd","c":"art","p":[[-122.8996,45.5187],[-122.8998,45.5171],[-122.9018,45.5141],[-122.902,45.5132],[-122.9022,45.4973]]},{"l":"Glencoe Rd","c":"art","p":[[-122.9921,45.6],[-122.9925,45.5991],[-122.9926,45.5975],[-122.9928,45.5971],[-122.9941,45.596],[-122.998,45.5884],[-122.9987,45.5868],[-123.0021,45.5769],[-123.0044,45.5731],[-123.0046,45.5719],[-123.0049,45.5638],[-123.0045,45.563],[-123.0038,45.5626],[-123.003,45.5624],[-123.0011,45.5624],[-122.9998,45.5619],[-122.9993,45.5611],[-122.9993,45.5591],[-122.999,45.5582],[-122.9985,45.5576],[-122.9963,45.5561],[-122.9957,45.5554],[-122.9954,45.5545],[-122.9954,45.5517],[-122.9958,45.5385],[-122.9952,45.5376],[-122.9932,45.5361],[-122.9913,45.5358],[-122.9902,45.5354],[-122.9896,45.5346],[-122.9895,45.5334]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9797,45.546],[-122.9755,45.5461]]},{"l":"Cornell Rd","c":"art","p":[[-122.9292,45.5336],[-122.926,45.5336]]},{"l":"Baseline Rd","c":"art","p":[[-122.9322,45.5199],[-122.9329,45.5199]]},{"l":"Century Blvd","c":"art","p":[[-122.9146,45.5166],[-122.9145,45.5123]]},{"l":"Cornell Rd","c":"art","p":[[-122.9079,45.5352],[-122.9069,45.5359],[-122.9054,45.5378]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9796,45.5341],[-122.9812,45.5341]]},{"l":"Cornell Rd","c":"art","p":[[-122.8374,45.5311],[-122.842,45.5329]]},{"l":"Cornell Rd","c":"art","p":[[-122.9744,45.5221],[-122.9704,45.5255],[-122.9681,45.5288],[-122.9667,45.5301],[-122.9657,45.5307],[-122.9537,45.5307],[-122.9505,45.5322],[-122.9406,45.5322],[-122.938,45.5327]]},{"l":"229th Ave","c":"art","p":[[-122.9125,45.5164],[-122.9125,45.5152],[-122.9128,45.5148],[-122.9128,45.5142]]},{"l":"Cornell Rd","c":"art","p":[[-122.938,45.5327],[-122.937,45.5329]]},{"l":"Baseline Rd","c":"art","p":[[-122.8477,45.5124],[-122.849,45.5116],[-122.8509,45.5125],[-122.8569,45.5125],[-122.8635,45.5142],[-122.869,45.5161],[-122.8701,45.5163],[-122.8766,45.516],[-122.8798,45.5151],[-122.9016,45.5153],[-122.9035,45.516],[-122.9094,45.5194],[-122.9134,45.5205],[-122.9186,45.5199],[-122.9329,45.5199]]},{"l":"Cornell Rd","c":"art","p":[[-122.8374,45.5311],[-122.8407,45.5294],[-122.8425,45.5294],[-122.8442,45.5302],[-122.8452,45.5318],[-122.8467,45.5328],[-122.8576,45.5355],[-122.8592,45.5354],[-122.8631,45.5342],[-122.8646,45.534],[-122.8709,45.5344],[-122.8769,45.5344],[-122.886,45.5378],[-122.8954,45.5398],[-122.901,45.5396],[-122.9031,45.5392],[-122.9047,45.5384],[-122.9054,45.5378],[-122.9069,45.5359],[-122.9079,45.5352],[-122.9101,45.5344],[-122.912,45.5343]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.862,45.5354],[-122.8616,45.5347]]},{"l":"Oak Hills Dr","c":"art","p":[[-122.8386,45.5358],[-122.8384,45.5362]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.9263,45.5509],[-122.9561,45.5513],[-122.9597,45.5527],[-122.9611,45.5528],[-122.9625,45.5526],[-122.9639,45.5519],[-122.9656,45.5506],[-122.9668,45.5501],[-122.9955,45.5498]]},{"l":"Brookwood","c":"art","p":[[-122.9367,45.5199],[-122.9366,45.5167]]},{"l":"Century Blvd","c":"art","p":[[-122.912,45.5343],[-122.912,45.5353],[-122.9116,45.5361],[-122.911,45.5366],[-122.9101,45.537],[-122.9095,45.5377],[-122.9078,45.54],[-122.9074,45.541],[-122.9074,45.5415],[-122.9077,45.5422],[-122.9093,45.5433],[-122.9098,45.5441],[-122.9098,45.5476],[-122.9105,45.5491],[-122.9099,45.5504]]},{"l":"Baseline Rd","c":"art","p":[[-122.9329,45.5199],[-122.9367,45.5199]]},{"l":"Brookwood","c":"art","p":[[-122.9348,45.5267],[-122.9348,45.5271]]},{"l":"229th Ave","c":"art","p":[[-122.9102,45.5539],[-122.9098,45.5537],[-122.9093,45.5527],[-122.9093,45.5513],[-122.9099,45.5504]]},{"l":"Brookwood","c":"art","p":[[-122.9308,45.4996],[-122.9307,45.4976]]},{"l":"Brookwood","c":"art","p":[[-122.9307,45.4966],[-122.9307,45.4961]]},{"l":"Brookwood","c":"art","p":[[-122.9366,45.5167],[-122.9366,45.5091],[-122.9362,45.5086],[-122.9356,45.5083],[-122.933,45.5083]]},{"l":"185th Ave","c":"art","p":[[-122.8675,45.5467],[-122.8668,45.5468],[-122.8667,45.5473]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9699,45.5764],[-122.9695,45.5779],[-122.9668,45.5815],[-122.9664,45.5824],[-122.9664,45.5832],[-122.969,45.5902],[-122.9691,45.5952],[-122.9666,45.6084],[-122.9659,45.6168],[-122.966,45.6184],[-122.9666,45.6211],[-122.9667,45.6224],[-122.9674,45.6234],[-122.9674,45.6238],[-122.967,45.6242],[-122.967,45.6253],[-122.9677,45.6291],[-122.9681,45.6297],[-122.9692,45.63],[-122.9699,45.6299]]},{"l":"Baseline Rd","c":"art","p":[[-122.9739,45.52],[-122.9702,45.5199]]},{"l":"Baseline Rd","c":"art","p":[[-122.9331,45.5199],[-122.9367,45.5199]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9822,45.5363],[-122.9796,45.5363]]},{"l":"Baseline Rd","c":"art","p":[[-122.9581,45.521],[-122.9545,45.5208],[-122.9498,45.5199]]},{"l":"Jackson School Rd","c":"art","p":[[-122.9833,45.5283],[-122.9797,45.532],[-122.9796,45.5341]]},{"l":"Century Blvd","c":"art","p":[[-122.9138,45.5603],[-122.9117,45.5595],[-122.9107,45.5595],[-122.9099,45.5602],[-122.9098,45.5624],[-122.9102,45.5633],[-122.911,45.564],[-122.9112,45.5645],[-122.9112,45.5654]]},{"l":"Baseline Rd","c":"art","p":[[-122.9146,45.5204],[-122.9186,45.5199],[-122.9322,45.5199]]},{"l":"Evergreen Pkwy","c":"art","p":[[-122.9797,45.55],[-122.9847,45.5499]]},{"l":"River Rd","c":"art","p":[[-122.9174,45.4231],[-122.9364,45.4293],[-122.9381,45.4303],[-122.9407,45.4331],[-122.9413,45.4335],[-122.9445,45.4351],[-122.9488,45.4355],[-122.9496,45.436],[-122.9507,45.4411],[-122.947,45.4503],[-122.9466,45.4508],[-122.9384,45.4556],[-122.9378,45.4605],[-122.9374,45.4619],[-122.9363,45.4639],[-122.9336,45.4669],[-122.931,45.4713],[-122.9331,45.4802],[-122.9338,45.4819],[-122.9365,45.4846],[-122.9386,45.4875],[-122.9394,45.4897],[-122.94,45.4942],[-122.9403,45.4948],[-122.9407,45.4953],[-122.942,45.4962],[-122.9431,45.4965]]}],"city":[[[-123.0118,45.5206],[-123.0098,45.519],[-123.0097,45.518],[-123.01,45.5177],[-123.0107,45.5178],[-123.0109,45.5174],[-123.0098,45.5175],[-123.0074,45.5142],[-123.0057,45.5142],[-123.0029,45.5108],[-122.9998,45.5108],[-122.9998,45.5114],[-122.991,45.5113],[-122.991,45.5048],[-122.9907,45.5047],[-122.9906,45.5031],[-122.9911,45.5003],[-122.9877,45.4973],[-122.9872,45.4976],[-122.9877,45.499],[-122.9866,45.4997],[-122.9844,45.4982],[-122.9831,45.4981],[-122.9822,45.4986],[-122.9822,45.5073],[-122.9765,45.5072],[-122.9755,45.5049],[-122.9745,45.5054],[-122.973,45.5054],[-122.9693,45.5045],[-122.9678,45.5035],[-122.9673,45.504],[-122.9648,45.5033],[-122.9651,45.5027],[-122.9641,45.5024],[-122.9654,45.5002],[-122.9662,45.5004],[-122.9665,45.5001],[-122.9666,45.4997],[-122.9659,45.4997],[-122.9667,45.4986],[-122.9715,45.499],[-122.9717,45.4957],[-122.969,45.4953],[-122.9694,45.4941],[-122.9608,45.4905],[-122.9597,45.4909],[-122.9586,45.4906],[-122.9587,45.4886],[-122.9577,45.4886],[-122.9541,45.4898],[-122.9499,45.4901],[-122.9466,45.4907],[-122.9446,45.4915],[-122.9446,45.4922],[-122.9458,45.4925],[-122.947,45.4922],[-122.9482,45.493],[-122.9482,45.4937],[-122.9498,45.494],[-122.9498,45.4944],[-122.9487,45.4949],[-122.9483,45.4956],[-122.9483,45.4966],[-122.9492,45.4975],[-122.9462,45.4972],[-122.9419,45.4961],[-122.9377,45.496],[-122.9377,45.4941],[-122.9397,45.494],[-122.9405,45.4949],[-122.9416,45.4945],[-122.9416,45.494],[-122.9427,45.494],[-122.9427,45.491],[-122.9431,45.4908],[-122.9423,45.4905],[-122.9416,45.4896],[-122.9415,45.4888],[-122.942,45.4879],[-122.9389,45.4883],[-122.9365,45.4846],[-122.9341,45.4823],[-122.9254,45.4824],[-122.9254,45.4831],[-122.9304,45.4843],[-122.9305,45.488],[-122.9339,45.4873],[-122.934,45.4888],[-122.9306,45.489],[-122.9306,45.4934],[-122.9287,45.4934],[-122.9287,45.4941],[-122.9282,45.4941],[-122.9281,45.4935],[-122.9263,45.4937],[-122.9263,45.4941],[-122.922,45.4941],[-122.922,45.4928],[-122.9195,45.4922],[-122.9197,45.4913],[-122.9214,45.4918],[-122.9219,45.4913],[-122.9241,45.4913],[-122.9238,45.4912],[-122.9236,45.4876],[-122.9151,45.4865],[-122.9147,45.4865],[-122.9146,45.4869],[-122.9133,45.4867],[-122.9136,45.4855],[-122.9108,45.4855],[-122.9108,45.4849],[-122.9102,45.4849],[-122.9102,45.4825],[-122.9112,45.4825],[-122.912,45.4819],[-122.9136,45.4819],[-122.9136,45.4765],[-122.8969,45.4766],[-122.8971,45.4828],[-122.8935,45.4829],[-122.8947,45.4766],[-122.8944,45.4766],[-122.8919,45.4898],[-122.8917,45.4962],[-122.9016,45.4972],[-122.8977,45.4971],[-122.8922,45.4963],[-122.8914,45.4965],[-122.8966,45.4973],[-122.9013,45.4975],[-122.9015,45.4982],[-122.9002,45.4982],[-122.9001,45.4998],[-122.9035,45.4998],[-122.9035,45.5002],[-122.902,45.5003],[-122.9019,45.503],[-122.9051,45.503],[-122.9051,45.5041],[-122.9021,45.5041],[-122.9021,45.5056],[-122.903,45.5056],[-122.903,45.5062],[-122.9018,45.5062],[-122.9017,45.5139],[-122.8991,45.5139],[-122.8991,45.5151],[-122.8961,45.5151],[-122.8959,45.5186],[-122.9018,45.5186],[-122.9017,45.5197],[-122.9012,45.5197],[-122.9012,45.5194],[-122.8995,45.5194],[-122.8996,45.5219],[-122.899,45.5219],[-122.899,45.5226],[-122.8978,45.5226],[-122.8979,45.523],[-122.8952,45.523],[-122.8952,45.5237],[-122.8945,45.5237],[-122.8945,45.523],[-122.8911,45.5231],[-122.8879,45.5219],[-122.8877,45.5226],[-122.8848,45.5219],[-122.869,45.5166],[-122.8695,45.5154],[-122.8688,45.5152],[-122.8692,45.5143],[-122.8675,45.5138],[-122.8675,45.5157],[-122.8672,45.5157],[-122.8671,45.5163],[-122.8674,45.5252],[-122.8673,45.5276],[-122.8671,45.5275],[-122.8673,45.5342],[-122.8637,45.5342],[-122.8618,45.5347],[-122.862,45.5354],[-122.8595,45.5386],[-122.8655,45.5406],[-122.8672,45.5407],[-122.8672,45.543],[-122.8675,45.5435],[-122.8679,45.5429],[-122.8693,45.5429],[-122.8808,45.5472],[-122.8828,45.5481],[-122.8827,45.5484],[-122.8832,45.5489],[-122.8838,45.5485],[-122.8847,45.5488],[-122.8947,45.5525],[-122.8986,45.5543],[-122.8986,45.5574],[-122.8991,45.5574],[-122.8991,45.5554],[-122.8995,45.5554],[-122.8994,45.5585],[-122.8988,45.5593],[-122.8989,45.5605],[-122.898,45.5606],[-122.8927,45.5682],[-122.8955,45.5682],[-122.8961,45.5697],[-122.9036,45.573],[-122.9068,45.5734],[-122.912,45.5751],[-122.9138,45.5655],[-122.9158,45.5654],[-122.9147,45.5714],[-122.9142,45.5726],[-122.9144,45.5726],[-122.9139,45.5756],[-122.9201,45.5758],[-122.921,45.576],[-122.9215,45.5765],[-122.9224,45.5743],[-122.9195,45.5743],[-122.9202,45.5727],[-122.9232,45.5727],[-122.9261,45.5659],[-122.9264,45.5618],[-122.9326,45.5619],[-122.9325,45.564],[-122.934,45.564],[-122.934,45.5658],[-122.9428,45.566],[-122.9428,45.5652],[-122.9434,45.5652],[-122.9434,45.566],[-122.9431,45.5661],[-122.9418,45.5692],[-122.9434,45.566],[-122.9484,45.566],[-122.9497,45.5665],[-122.9497,45.562],[-122.9528,45.5618],[-122.9528,45.5587],[-122.947,45.5587],[-122.947,45.5559],[-122.9474,45.5559],[-122.9476,45.5547],[-122.951,45.5548],[-122.951,45.5534],[-122.9527,45.5534],[-122.9527,45.5558],[-122.9547,45.5558],[-122.9547,45.5563],[-122.9556,45.5563],[-122.9556,45.5559],[-122.9584,45.556],[-122.9584,45.554],[-122.9608,45.554],[-122.9608,45.5564],[-122.9631,45.5565],[-122.9631,45.5574],[-122.9584,45.5574],[-122.9585,45.5647],[-122.9628,45.5649],[-122.9638,45.5639],[-122.9658,45.5631],[-122.969,45.5631],[-122.9709,45.5639],[-122.9715,45.5646],[-122.9713,45.565],[-122.9726,45.5638],[-122.9733,45.5526],[-122.9705,45.5525],[-122.9705,45.5533],[-122.9681,45.5532],[-122.9683,45.5502],[-122.9955,45.5501],[-122.9956,45.5496],[-122.9982,45.55],[-122.9982,45.5488],[-123.0023,45.5486],[-123.0022,45.5466],[-123.005,45.5466],[-123.005,45.548],[-123.006,45.5485],[-123.0062,45.548],[-123.0073,45.5474],[-123.007,45.5467],[-123.0059,45.5465],[-123.0066,45.5458],[-123.005,45.5458],[-123.0055,45.545],[-123.0032,45.544],[-123.0033,45.5432],[-123.0022,45.543],[-123.0025,45.5427],[-123.0013,45.5422],[-122.9999,45.541],[-122.9986,45.541],[-122.9986,45.5406],[-122.9992,45.5405],[-122.996,45.5379],[-123.0015,45.5421],[-123.0041,45.5428],[-123.0041,45.5424],[-123.0033,45.5417],[-123.0036,45.5411],[-123.0033,45.5406],[-123.0028,45.5405],[-123.002,45.541],[-123.0002,45.5399],[-123.0001,45.5393],[-122.9993,45.5393],[-122.9986,45.5397],[-122.9982,45.5394],[-122.9991,45.5387],[-123.0,45.5389],[-122.9999,45.5382],[-123.0012,45.5382],[-123.0012,45.5376],[-122.9998,45.5376],[-122.9997,45.5371],[-123.0008,45.5355],[-123.002,45.5346],[-123.002,45.5318],[-123.0048,45.5318],[-123.0052,45.5313],[-123.0047,45.5309],[-123.0022,45.5309],[-123.0022,45.5301],[-123.0041,45.5301],[-123.0041,45.5295],[-123.0033,45.5295],[-123.0033,45.529],[-123.0041,45.529],[-123.0041,45.5273],[-123.0047,45.5273],[-123.0046,45.5263],[-123.0053,45.5254],[-123.0065,45.5247],[-123.0069,45.5239],[-123.0066,45.5235],[-123.0075,45.5233],[-123.0073,45.5228],[-123.0085,45.5219],[-123.0104,45.5228],[-123.0115,45.5227],[-123.0112,45.5209],[-123.0118,45.5206]],[[-122.9906,45.5351],[-122.9902,45.5354],[-122.99,45.5352],[-122.9906,45.5351]],[[-122.9528,45.5527],[-122.9527,45.5534],[-122.951,45.5534],[-122.951,45.5527],[-122.9528,45.5527]],[[-122.9405,45.4914],[-122.9405,45.4917],[-122.9397,45.4917],[-122.9397,45.4914],[-122.9405,45.4914]],[[-122.9396,45.491],[-122.9394,45.4907],[-122.9396,45.491]],[[-122.9391,45.4892],[-122.9392,45.4894],[-122.9376,45.4897],[-122.9374,45.4892],[-122.939,45.4889],[-122.9391,45.4892]],[[-122.9378,45.4866],[-122.9385,45.4876],[-122.9351,45.4876],[-122.9351,45.4869],[-122.9378,45.4866]],[[-122.9383,45.5547],[-122.9383,45.5557],[-122.9366,45.5556],[-122.9366,45.5547],[-122.9383,45.5547]],[[-122.9373,45.551],[-122.9373,45.5515],[-122.9367,45.5515],[-122.9367,45.551],[-122.9373,45.551]],[[-122.9231,45.5654],[-122.9231,45.5673],[-122.9192,45.5673],[-122.9192,45.5654],[-122.9231,45.5654]],[[-122.9141,45.4873],[-122.9141,45.4881],[-122.9135,45.4881],[-122.9135,45.4876],[-122.9126,45.4875],[-122.9126,45.4872],[-122.9141,45.4873]],[[-122.9136,45.4915],[-122.9136,45.492],[-122.9126,45.492],[-122.9126,45.4915],[-122.9136,45.4915]],[[-122.9133,45.4868],[-122.9133,45.4871],[-122.9127,45.4871],[-122.9127,45.4867],[-122.9133,45.4868]],[[-122.9086,45.4838],[-122.9085,45.4862],[-122.9044,45.4862],[-122.9045,45.4838],[-122.9086,45.4838]],[[-122.9085,45.4792],[-122.9085,45.4805],[-122.9062,45.4805],[-122.9067,45.478],[-122.9085,45.4782],[-122.9085,45.4792]],[[-122.9033,45.4858],[-122.9032,45.4861],[-122.8928,45.486],[-122.8932,45.4841],[-122.8973,45.484],[-122.8983,45.4837],[-122.9027,45.4838],[-122.9027,45.4858],[-122.9033,45.4858]],[[-122.8714,45.5125],[-122.8675,45.5125],[-122.8675,45.5129],[-122.8683,45.5129],[-122.8701,45.5137],[-122.8714,45.5125]]]},"region":{"counties":[[[-123.218,46.37],[-123.218,46.37]],[[-123.72,44.432],[-123.72,44.432]],[[-122.25,45.819],[-122.25,45.819]],[[-121.482,45.505],[-121.482,45.505]],[[-124.175,46.794],[-124.175,46.794]],[[-122.898,44.745],[-122.898,44.745]],[[-122.868,45.606],[-122.868,45.606]],[[-124.07,45.764],[-124.07,45.764]],[[-123.302,44.72],[-123.302,44.72]],[[-122.865,44.758],[-122.865,44.758]],[[-123.456,44.281],[-123.456,44.281]],[[-121.858,45.696],[-121.858,45.696]],[[-123.0,45.261],[-123.0,45.261]],[[-122.264,45.461],[-122.264,45.461]],[[-122.48,45.461],[-122.48,45.461]],[[-123.662,45.775],[-123.662,45.775]],[[-122.811,45.914],[-122.811,45.914]],[[-123.728,46.264],[-123.728,46.264]]],"roads":[{"l":"US 26","c":"hwy","p":[[-123.362,45.778],[-123.396,45.773],[-123.427,45.78]]},{"l":"US 101","c":"hwy","p":[[-123.842,45.448],[-123.844,45.458]]},{"l":"US 101","c":"hwy","p":[[-123.88,45.692],[-123.877,45.699],[-123.892,45.711]]},{"l":"US 101","c":"hwy","p":[[-123.926,45.559],[-123.942,45.569],[-123.948,45.588],[-123.946,45.599]]},{"l":"US 101","c":"hwy","p":[[-123.9,45.718],[-123.928,45.719],[-123.932,45.734],[-123.961,45.745],[-123.963,45.755],[-123.943,45.773],[-123.957,45.783]]},{"l":"US 101","c":"hwy","p":[[-123.857,45.245],[-123.848,45.248],[-123.849,45.267],[-123.841,45.268]]},{"l":"US 101","c":"hwy","p":[[-123.874,45.225],[-123.862,45.23]]},{"l":"US 26","c":"hwy","p":[[-123.356,45.78],[-123.362,45.778]]},{"l":"US 26","c":"hwy","p":[[-122.392,45.47],[-122.383,45.461]]},{"l":"US 26","c":"hwy","p":[[-122.676,45.511],[-122.677,45.506]]},{"l":"US 26","c":"hwy","p":[[-122.677,45.506],[-122.678,45.5]]},{"l":"US 26","c":"hwy","p":[[-122.677,45.506],[-122.678,45.5]]},{"l":"US 26","c":"hwy","p":[[-122.397,45.477],[-122.392,45.47]]},{"l":"US 26","c":"hwy","p":[[-122.397,45.477],[-122.392,45.47]]},{"l":"US 30","c":"hwy","p":[[-122.686,45.535],[-122.699,45.541]]},{"l":"US 30","c":"hwy","p":[[-122.686,45.535],[-122.697,45.537],[-122.699,45.541]]},{"l":"US 30","c":"hwy","p":[[-122.768,45.584],[-122.749,45.59],[-122.709,45.577],[-122.654,45.577],[-122.59,45.563],[-122.477,45.546],[-122.418,45.543],[-122.418,45.539]]},{"l":"US 26","c":"hwy","p":[[-122.255,45.397],[-122.27,45.398]]},{"l":"US 26","c":"hwy","p":[[-122.255,45.397],[-122.27,45.398]]},{"l":"US 26","c":"hwy","p":[[-122.382,45.46],[-122.337,45.428]]},{"l":"US 26","c":"hwy","p":[[-122.382,45.46],[-122.337,45.428]]},{"l":"US 26","c":"hwy","p":[[-122.383,45.461],[-122.382,45.46]]},{"l":"US 26","c":"hwy","p":[[-122.27,45.398],[-122.337,45.428]]},{"l":"US 26","c":"hwy","p":[[-123.34,45.78],[-123.356,45.78]]},{"l":"US 26","c":"hwy","p":[[-123.918,45.936],[-123.919,45.942]]},{"l":"US 26","c":"hwy","p":[[-123.919,45.942],[-123.918,45.936]]},{"l":"US 26","c":"hwy","p":[[-123.427,45.78],[-123.472,45.802],[-123.491,45.815],[-123.496,45.828],[-123.507,45.831],[-123.508,45.836],[-123.528,45.849],[-123.537,45.85],[-123.542,45.857],[-123.561,45.86],[-123.573,45.867],[-123.592,45.865],[-123.608,45.884],[-123.657,45.901],[-123.668,45.903],[-123.68,45.898],[-123.692,45.909],[-123.706,45.912],[-123.716,45.907],[-123.726,45.91],[-123.758,45.902],[-123.816,45.91],[-123.867,45.901],[-123.883,45.908],[-123.902,45.93],[-123.918,45.936]]},{"l":"US 26","c":"hwy","p":[[-123.919,45.942],[-123.927,45.951],[-123.924,45.963],[-123.928,45.976],[-123.911,46.013],[-123.916,46.096],[-123.929,46.133],[-123.912,46.154],[-123.861,46.183]]},{"l":"US 30","c":"hwy","p":[[-123.364,46.125],[-123.429,46.159],[-123.438,46.171],[-123.482,46.168],[-123.515,46.177],[-123.643,46.164],[-123.68,46.171],[-123.696,46.166],[-123.734,46.17],[-123.747,46.166],[-123.757,46.17],[-123.751,46.185],[-123.765,46.194],[-123.826,46.189]]},{"l":"US 30","c":"hwy","p":[[-123.835,46.19],[-123.826,46.189]]},{"l":"US 30","c":"hwy","p":[[-123.826,46.189],[-123.835,46.19]]},{"l":"US 30","c":"hwy","p":[[-123.853,46.188],[-123.835,46.19]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.942],[-123.927,45.951],[-123.924,45.963],[-123.928,45.976],[-123.911,46.013],[-123.916,46.096],[-123.929,46.133],[-123.912,46.154],[-123.861,46.183]]},{"l":"US 101","c":"hwy","p":[[-123.861,46.183],[-123.849,46.19],[-123.872,46.235]]},{"l":"US 101","c":"hwy","p":[[-123.876,45.217],[-123.875,45.221]]},{"l":"US 101","c":"hwy","p":[[-123.832,45.275],[-123.824,45.28],[-123.822,45.295],[-123.834,45.303],[-123.842,45.32],[-123.837,45.335],[-123.82,45.342],[-123.805,45.362],[-123.803,45.392],[-123.824,45.409],[-123.825,45.434]]},{"l":"US 30","c":"hwy","p":[[-122.999,46.1],[-122.965,46.095]]},{"l":"US 30","c":"hwy","p":[[-122.965,46.095],[-122.999,46.1]]},{"l":"US 26","c":"hwy","p":[[-122.676,45.511],[-122.698,45.516],[-122.711,45.507],[-122.744,45.508]]},{"l":"US 26","c":"hwy","p":[[-122.676,45.511],[-122.698,45.516],[-122.711,45.507],[-122.744,45.508]]},{"l":"US 101","c":"hwy","p":[[-123.969,45.143],[-123.951,45.157],[-123.933,45.163],[-123.929,45.175],[-123.92,45.184],[-123.909,45.185],[-123.891,45.206],[-123.877,45.212]]},{"l":"US 101","c":"hwy","p":[[-123.842,45.448],[-123.844,45.458]]},{"l":"US 30","c":"hwy","p":[[-121.898,45.661],[-121.901,45.656]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.478],[-123.851,45.497],[-123.897,45.528],[-123.906,45.548],[-123.891,45.561],[-123.896,45.563]]},{"l":"US 101","c":"hwy","p":[[-123.944,45.613],[-123.94,45.641],[-123.923,45.67],[-123.924,45.688],[-123.891,45.686],[-123.882,45.69]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.478],[-123.844,45.472]]},{"l":"US 30","c":"hwy","p":[[-121.898,45.661],[-121.903,45.654]]},{"l":"US 26","c":"hwy","p":[[-122.744,45.508],[-122.779,45.509],[-123.07,45.618]]},{"l":"US 26","c":"hwy","p":[[-123.07,45.618],[-123.138,45.646],[-123.211,45.69],[-123.238,45.713],[-123.239,45.724],[-123.272,45.743],[-123.28,45.753],[-123.312,45.763],[-123.34,45.78]]},{"l":"US 30","c":"hwy","p":[[-122.999,46.1],[-123.014,46.096],[-123.065,46.099],[-123.128,46.093],[-123.168,46.103],[-123.2,46.102],[-123.215,46.113],[-123.238,46.121],[-123.301,46.111],[-123.364,46.125]]},{"l":"US 26","c":"hwy","p":[[-122.744,45.508],[-122.781,45.51],[-123.07,45.618]]},{"l":"US 101","c":"hwy","p":[[-124.044,44.85],[-124.048,44.843]]},{"l":"US 101","c":"hwy","p":[[-124.037,44.863],[-124.044,44.851]]},{"l":"US 101","c":"hwy","p":[[-124.048,44.843],[-124.044,44.85]]},{"l":"US 101","c":"hwy","p":[[-124.044,44.85],[-124.044,44.851]]},{"l":"US 101","c":"hwy","p":[[-124.037,44.863],[-124.028,44.886],[-124.008,44.898],[-124.005,44.914],[-124.024,44.937],[-124.014,44.951],[-124.018,44.966],[-124.007,44.982],[-124.006,44.994],[-123.98,45.006],[-123.974,45.021],[-123.954,45.032],[-123.951,45.041],[-123.955,45.046]]},{"l":"US 101","c":"hwy","p":[[-124.044,44.851],[-124.037,44.863]]},{"l":"US 101","c":"hwy","p":[[-124.113,44.276],[-124.108,44.282],[-124.113,44.288],[-124.108,44.291],[-124.111,44.294],[-124.099,44.309],[-124.105,44.315],[-124.084,44.412],[-124.067,44.427],[-124.075,44.437],[-124.074,44.452],[-124.083,44.494],[-124.076,44.518],[-124.07,44.521],[-124.075,44.532],[-124.064,44.59],[-124.05,44.613],[-124.062,44.628],[-124.053,44.636],[-124.053,44.655],[-124.064,44.687],[-124.056,44.741],[-124.051,44.748],[-124.063,44.76],[-124.073,44.782],[-124.066,44.788],[-124.061,44.805],[-124.066,44.827],[-124.058,44.83],[-124.048,44.843]]},{"l":"US 101","c":"hwy","p":[[-123.955,45.046],[-123.946,45.075],[-123.982,45.101],[-123.968,45.119],[-123.969,45.144],[-123.95,45.158],[-123.933,45.163],[-123.929,45.175],[-123.92,45.184],[-123.909,45.185],[-123.891,45.206],[-123.877,45.213],[-123.872,45.229],[-123.861,45.23],[-123.865,45.239],[-123.848,45.247],[-123.848,45.268],[-123.838,45.268],[-123.824,45.28],[-123.822,45.295],[-123.834,45.303],[-123.842,45.32],[-123.837,45.335],[-123.82,45.342],[-123.805,45.362],[-123.803,45.393],[-123.824,45.409],[-123.824,45.434],[-123.842,45.448]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.467],[-123.844,45.467]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.465],[-123.844,45.465]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.459],[-123.844,45.459]]},{"l":"US 101","c":"hwy","p":[[-123.825,45.434],[-123.843,45.448],[-123.843,45.458]]},{"l":"US 30","c":"hwy","p":[[-122.699,45.541],[-122.733,45.555],[-122.754,45.569],[-122.798,45.612],[-122.863,45.661],[-122.874,45.679],[-122.871,45.698],[-122.875,45.721]]},{"l":"US 26","c":"hwy","p":[[-121.698,45.226],[-121.702,45.232],[-121.698,45.237],[-121.707,45.243],[-121.718,45.268],[-121.714,45.283],[-121.735,45.29],[-121.736,45.301],[-121.782,45.303],[-121.792,45.307],[-121.793,45.312],[-121.821,45.303],[-121.835,45.31],[-121.871,45.305],[-121.897,45.315],[-121.927,45.339],[-121.976,45.352],[-122.014,45.371],[-122.047,45.38],[-122.108,45.378],[-122.158,45.367],[-122.222,45.376],[-122.255,45.397]]},{"l":"US 26","c":"hwy","p":[[-122.677,45.506],[-122.677,45.504]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.458],[-123.844,45.472]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.472],[-123.844,45.478]]},{"l":"US 101","c":"hwy","p":[[-123.957,45.783],[-123.943,45.773],[-123.963,45.755],[-123.961,45.745],[-123.932,45.734],[-123.928,45.719],[-123.894,45.718],[-123.892,45.71],[-123.877,45.699],[-123.882,45.69],[-123.891,45.686],[-123.924,45.688],[-123.923,45.67],[-123.941,45.634],[-123.948,45.589],[-123.944,45.573],[-123.934,45.561],[-123.923,45.558],[-123.892,45.563],[-123.906,45.548],[-123.897,45.528],[-123.851,45.497],[-123.844,45.478]]},{"l":"US 101","c":"hwy","p":[[-123.957,45.783],[-123.967,45.798],[-123.958,45.84],[-123.963,45.857],[-123.959,45.885],[-123.954,45.907],[-123.939,45.916],[-123.921,45.938]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.94],[-123.921,45.938]]},{"l":"US 101","c":"hwy","p":[[-123.921,45.938],[-123.918,45.936],[-123.919,45.94]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.942],[-123.921,45.938]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.94],[-123.919,45.942]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.478],[-123.844,45.478]]},{"l":"US 101","c":"hwy","p":[[-123.739,46.793],[-123.741,46.778],[-123.755,46.76],[-123.744,46.739],[-123.748,46.733],[-123.741,46.726],[-123.744,46.715],[-123.738,46.696],[-123.73,46.688],[-123.731,46.682],[-123.741,46.68],[-123.75,46.685],[-123.801,46.663],[-123.812,46.667],[-123.847,46.699],[-123.875,46.684],[-123.915,46.677],[-123.921,46.672],[-123.918,46.646],[-123.923,46.626],[-123.914,46.615],[-123.919,46.599],[-123.916,46.573],[-123.892,46.546],[-123.886,46.519],[-123.888,46.479],[-123.874,46.459],[-123.872,46.448],[-123.857,46.437],[-123.856,46.431],[-123.9,46.435],[-123.906,46.429],[-123.916,46.43],[-123.924,46.419],[-123.934,46.416],[-123.939,46.403],[-123.952,46.403],[-123.95,46.373],[-123.955,46.351],[-123.977,46.333],[-124.055,46.331],[-124.055,46.324],[-124.044,46.318],[-124.043,46.309],[-124.034,46.309],[-124.007,46.322],[-123.97,46.307],[-123.948,46.276],[-123.923,46.254],[-123.909,46.246],[-123.875,46.241],[-123.872,46.235]]},{"l":"US 26","c":"hwy","p":[[-122.678,45.5],[-122.559,45.496],[-122.515,45.499],[-122.472,45.49],[-122.457,45.497],[-122.415,45.498],[-122.401,45.489],[-122.397,45.477]]},{"l":"US 30","c":"hwy","p":[[-122.875,45.721],[-122.879,45.773],[-122.833,45.846],[-122.819,45.862],[-122.811,45.878],[-122.812,45.895],[-122.836,45.924],[-122.86,45.945],[-122.868,45.96],[-122.866,45.976],[-122.878,45.998],[-122.876,46.018],[-122.898,46.04],[-122.897,46.065],[-122.916,46.084],[-122.965,46.095]]},{"l":"OR 6","c":"st","p":[[-123.843,45.458],[-123.744,45.468],[-123.713,45.484],[-123.697,45.483],[-123.675,45.497],[-123.64,45.49],[-123.601,45.496],[-123.619,45.514],[-123.606,45.532],[-123.61,45.541],[-123.603,45.548],[-123.604,45.557],[-123.57,45.564],[-123.57,45.571],[-123.56,45.576],[-123.558,45.586],[-123.514,45.593],[-123.492,45.606],[-123.472,45.609],[-123.443,45.605],[-123.425,45.611],[-123.416,45.621],[-123.388,45.617],[-123.377,45.622]]},{"l":"OR 18","c":"st","p":[[-123.802,45.045],[-123.765,45.056],[-123.746,45.056],[-123.725,45.071]]},{"l":"OR 22","c":"st","p":[[-123.784,45.104],[-123.789,45.104],[-123.808,45.13],[-123.799,45.149],[-123.806,45.177],[-123.82,45.181],[-123.818,45.187],[-123.857,45.22],[-123.861,45.23]]},{"l":"US 26","c":"hwy","p":[[-123.362,45.778],[-123.396,45.773],[-123.427,45.78]]},{"l":"US 101","c":"hwy","p":[[-123.842,45.448],[-123.844,45.458]]},{"l":"US 101","c":"hwy","p":[[-123.88,45.692],[-123.877,45.699],[-123.892,45.711]]},{"l":"US 101","c":"hwy","p":[[-123.926,45.559],[-123.942,45.569],[-123.948,45.588],[-123.946,45.599]]},{"l":"US 101","c":"hwy","p":[[-123.9,45.718],[-123.928,45.719],[-123.932,45.734],[-123.961,45.745],[-123.963,45.755],[-123.943,45.773],[-123.957,45.783]]},{"l":"US 101","c":"hwy","p":[[-123.857,45.245],[-123.848,45.248],[-123.849,45.267],[-123.841,45.268]]},{"l":"US 101","c":"hwy","p":[[-123.874,45.225],[-123.862,45.23]]},{"l":"OR 22","c":"st","p":[[-123.43,44.588],[-123.424,44.599],[-123.428,44.609],[-123.426,44.63],[-123.432,44.638],[-123.427,44.652],[-123.435,44.678],[-123.43,44.71],[-123.438,44.721]]},{"l":"OR 22","c":"st","p":[[-123.317,44.919],[-123.315,44.926]]},{"l":"OR 22","c":"st","p":[[-123.317,44.919],[-123.315,44.926]]},{"l":"OR 8","c":"st","p":[[-122.974,45.519],[-123.007,45.52]]},{"l":"OR 8","c":"st","p":[[-122.974,45.519],[-123.007,45.52]]},{"l":"US 26","c":"hwy","p":[[-123.356,45.78],[-123.362,45.778]]},{"l":"OR 22","c":"st","p":[[-123.072,45.075],[-123.061,45.129],[-123.059,45.2],[-123.063,45.214],[-123.081,45.225]]},{"l":"US 26","c":"hwy","p":[[-122.392,45.47],[-122.383,45.461]]},{"l":"US 26","c":"hwy","p":[[-122.676,45.511],[-122.677,45.506]]},{"l":"US 26","c":"hwy","p":[[-122.677,45.506],[-122.678,45.5]]},{"l":"US 26","c":"hwy","p":[[-122.677,45.506],[-122.678,45.5]]},{"l":"US 26","c":"hwy","p":[[-122.397,45.477],[-122.392,45.47]]},{"l":"US 26","c":"hwy","p":[[-122.397,45.477],[-122.392,45.47]]},{"l":"US 30","c":"hwy","p":[[-122.686,45.535],[-122.699,45.541]]},{"l":"US 30","c":"hwy","p":[[-122.686,45.535],[-122.697,45.537],[-122.699,45.541]]},{"l":"US 30","c":"hwy","p":[[-122.768,45.584],[-122.749,45.59],[-122.709,45.577],[-122.654,45.577],[-122.59,45.563],[-122.477,45.546],[-122.418,45.543],[-122.418,45.539]]},{"l":"OR 99E","c":"st","p":[[-122.661,45.502],[-122.662,45.536]]},{"l":"OR 99E","c":"st","p":[[-122.661,45.536],[-122.661,45.502]]},{"l":"OR 99E","c":"st","p":[[-122.661,45.581],[-122.661,45.581]]},{"l":"OR 99E","c":"st","p":[[-122.662,45.537],[-122.661,45.581]]},{"l":"OR 99E","c":"st","p":[[-122.662,45.536],[-122.661,45.536]]},{"l":"OR 99E","c":"st","p":[[-122.662,45.536],[-122.662,45.537]]},{"l":"OR 99E","c":"st","p":[[-122.661,45.536],[-122.662,45.537]]},{"l":"OR 99W","c":"st","p":[[-122.675,45.512],[-122.677,45.506]]},{"l":"US 26","c":"hwy","p":[[-122.255,45.397],[-122.27,45.398]]},{"l":"US 26","c":"hwy","p":[[-122.255,45.397],[-122.27,45.398]]},{"l":"US 26","c":"hwy","p":[[-122.382,45.46],[-122.337,45.428]]},{"l":"US 26","c":"hwy","p":[[-122.382,45.46],[-122.337,45.428]]},{"l":"US 26","c":"hwy","p":[[-122.383,45.461],[-122.382,45.46]]},{"l":"US 26","c":"hwy","p":[[-122.27,45.398],[-122.337,45.428]]},{"l":"OR 43","c":"st","p":[[-122.609,45.358],[-122.612,45.365],[-122.636,45.38],[-122.665,45.411],[-122.655,45.433]]},{"l":"US 26","c":"hwy","p":[[-123.34,45.78],[-123.356,45.78]]},{"l":"US 26","c":"hwy","p":[[-123.918,45.936],[-123.919,45.942]]},{"l":"US 26","c":"hwy","p":[[-123.919,45.942],[-123.918,45.936]]},{"l":"US 26","c":"hwy","p":[[-123.427,45.78],[-123.472,45.802],[-123.491,45.815],[-123.496,45.828],[-123.507,45.831],[-123.508,45.836],[-123.528,45.849],[-123.537,45.85],[-123.542,45.857],[-123.561,45.86],[-123.573,45.867],[-123.592,45.865],[-123.608,45.884],[-123.657,45.901],[-123.668,45.903],[-123.68,45.898],[-123.692,45.909],[-123.706,45.912],[-123.716,45.907],[-123.726,45.91],[-123.758,45.902],[-123.816,45.91],[-123.867,45.901],[-123.883,45.908],[-123.902,45.93],[-123.918,45.936]]},{"l":"US 26","c":"hwy","p":[[-123.919,45.942],[-123.927,45.951],[-123.924,45.963],[-123.928,45.976],[-123.911,46.013],[-123.916,46.096],[-123.929,46.133],[-123.912,46.154],[-123.861,46.183]]},{"l":"US 30","c":"hwy","p":[[-123.364,46.125],[-123.429,46.159],[-123.438,46.171],[-123.482,46.168],[-123.515,46.177],[-123.643,46.164],[-123.68,46.171],[-123.696,46.166],[-123.734,46.17],[-123.747,46.166],[-123.757,46.17],[-123.751,46.185],[-123.765,46.194],[-123.826,46.189]]},{"l":"US 30","c":"hwy","p":[[-123.835,46.19],[-123.826,46.189]]},{"l":"US 30","c":"hwy","p":[[-123.826,46.189],[-123.835,46.19]]},{"l":"US 30","c":"hwy","p":[[-123.853,46.188],[-123.835,46.19]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.942],[-123.927,45.951],[-123.924,45.963],[-123.928,45.976],[-123.911,46.013],[-123.916,46.096],[-123.929,46.133],[-123.912,46.154],[-123.861,46.183]]},{"l":"US 101","c":"hwy","p":[[-123.861,46.183],[-123.849,46.19],[-123.872,46.235]]},{"l":"US 101","c":"hwy","p":[[-123.876,45.217],[-123.875,45.221]]},{"l":"US 101","c":"hwy","p":[[-123.832,45.275],[-123.824,45.28],[-123.822,45.295],[-123.834,45.303],[-123.842,45.32],[-123.837,45.335],[-123.82,45.342],[-123.805,45.362],[-123.803,45.392],[-123.824,45.409],[-123.825,45.434]]},{"l":"OR 22","c":"st","p":[[-123.315,44.926],[-123.315,44.926]]},{"l":"OR 99W","c":"st","p":[[-122.948,45.306],[-122.942,45.308]]},{"l":"US 30","c":"hwy","p":[[-122.999,46.1],[-122.965,46.095]]},{"l":"US 30","c":"hwy","p":[[-122.965,46.095],[-122.999,46.1]]},{"l":"OR 18","c":"st","p":[[-123.459,45.073],[-123.451,45.075]]},{"l":"OR 18","c":"st","p":[[-123.481,45.06],[-123.459,45.073]]},{"l":"OR 18","c":"st","p":[[-123.481,45.06],[-123.459,45.073]]},{"l":"OR 99W","c":"st","p":[[-123.023,45.264],[-123.005,45.285]]},{"l":"OR 99W","c":"st","p":[[-122.968,45.3],[-122.983,45.3]]},{"l":"OR 99W","c":"st","p":[[-122.968,45.3],[-122.961,45.302]]},{"l":"OR 99W","c":"st","p":[[-122.948,45.306],[-122.942,45.308]]},{"l":"US 26","c":"hwy","p":[[-122.676,45.511],[-122.698,45.516],[-122.711,45.507],[-122.744,45.508]]},{"l":"US 26","c":"hwy","p":[[-122.676,45.511],[-122.698,45.516],[-122.711,45.507],[-122.744,45.508]]},{"l":"OR 99E","c":"st","p":[[-122.661,45.502],[-122.656,45.492],[-122.642,45.481],[-122.639,45.462]]},{"l":"OR 217","c":"st","p":[[-122.744,45.421],[-122.744,45.421]]},{"l":"US 101","c":"hwy","p":[[-123.969,45.143],[-123.951,45.157],[-123.933,45.163],[-123.929,45.175],[-123.92,45.184],[-123.909,45.185],[-123.891,45.206],[-123.877,45.212]]},{"l":"US 101","c":"hwy","p":[[-123.842,45.448],[-123.844,45.458]]},{"l":"OR 99W","c":"st","p":[[-123.208,45.197],[-123.201,45.203]]},{"l":"OR 99W","c":"st","p":[[-123.198,45.22],[-123.163,45.231]]},{"l":"OR 99W","c":"st","p":[[-123.201,45.203],[-123.198,45.22]]},{"l":"US 30","c":"hwy","p":[[-121.898,45.661],[-121.901,45.656]]},{"l":"OR 99W","c":"st","p":[[-122.961,45.302],[-122.948,45.306]]},{"l":"OR 99W","c":"st","p":[[-123.2,45.204],[-123.198,45.22]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.478],[-123.851,45.497],[-123.897,45.528],[-123.906,45.548],[-123.891,45.561],[-123.896,45.563]]},{"l":"US 101","c":"hwy","p":[[-123.944,45.613],[-123.94,45.641],[-123.923,45.67],[-123.924,45.688],[-123.891,45.686],[-123.882,45.69]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.478],[-123.844,45.472]]},{"l":"OR 22","c":"st","p":[[-123.23,44.935],[-123.238,44.933]]},{"l":"OR 22","c":"st","p":[[-123.076,44.978],[-123.08,45.015],[-123.087,45.028],[-123.081,45.042],[-123.084,45.051],[-123.072,45.075]]},{"l":"OR 99W","c":"st","p":[[-123.21,45.194],[-123.208,45.197]]},{"l":"US 30","c":"hwy","p":[[-121.898,45.661],[-121.903,45.654]]},{"l":"OR 22","c":"st","p":[[-123.051,44.943],[-123.081,44.929],[-123.129,44.932]]},{"l":"OR 22","c":"st","p":[[-123.238,44.933],[-123.234,44.935]]},{"l":"OR 22","c":"st","p":[[-123.241,44.935],[-123.368,45.003],[-123.412,45.01],[-123.426,45.023],[-123.446,45.025],[-123.494,45.056]]},{"l":"OR 22","c":"st","p":[[-122.951,44.629],[-122.867,44.632],[-122.847,44.665],[-122.849,44.704],[-122.797,44.706],[-122.788,44.712],[-122.759,44.714],[-122.715,44.713],[-122.709,44.725],[-122.698,44.727],[-122.668,44.751],[-122.669,44.761],[-122.663,44.769],[-122.632,44.775],[-122.616,44.772],[-122.618,44.789]]},{"l":"OR 22","c":"st","p":[[-122.618,44.789],[-122.618,44.792]]},{"l":"OR 217","c":"st","p":[[-122.778,45.508],[-122.79,45.499],[-122.793,45.486],[-122.786,45.472],[-122.784,45.45],[-122.744,45.421]]},{"l":"OR 22","c":"st","p":[[-123.044,44.945],[-123.051,44.943]]},{"l":"OR 8","c":"st","p":[[-122.746,45.507],[-122.756,45.498],[-122.814,45.488],[-122.95,45.502],[-122.973,45.512],[-122.974,45.519]]},{"l":"OR 22","c":"st","p":[[-122.727,44.796],[-122.781,44.812]]},{"l":"OR 47","c":"st","p":[[-123.132,45.642],[-123.144,45.651]]},{"l":"OR 47","c":"st","p":[[-123.139,45.434],[-123.143,45.459],[-123.12,45.498],[-123.108,45.508],[-123.087,45.514],[-123.084,45.524],[-123.107,45.536],[-123.106,45.566],[-123.114,45.583],[-123.114,45.621],[-123.132,45.642]]},{"l":"OR 47","c":"st","p":[[-123.216,45.78],[-123.213,45.765],[-123.191,45.756],[-123.196,45.752],[-123.194,45.748],[-123.201,45.737],[-123.203,45.709],[-123.195,45.699],[-123.198,45.683],[-123.144,45.651]]},{"l":"OR 22","c":"st","p":[[-122.673,44.785],[-122.727,44.796]]},{"l":"US 26","c":"hwy","p":[[-122.744,45.508],[-122.779,45.509],[-123.07,45.618]]},{"l":"OR 22","c":"st","p":[[-123.577,45.076],[-123.654,45.083],[-123.728,45.11],[-123.742,45.107],[-123.741,45.097],[-123.76,45.088],[-123.769,45.1],[-123.784,45.104]]},{"l":"OR 47","c":"st","p":[[-123.132,45.642],[-123.144,45.651]]},{"l":"US 26","c":"hwy","p":[[-123.07,45.618],[-123.138,45.646],[-123.211,45.69],[-123.238,45.713],[-123.239,45.724],[-123.272,45.743],[-123.28,45.753],[-123.312,45.763],[-123.34,45.78]]},{"l":"US 30","c":"hwy","p":[[-122.999,46.1],[-123.014,46.096],[-123.065,46.099],[-123.128,46.093],[-123.168,46.103],[-123.2,46.102],[-123.215,46.113],[-123.238,46.121],[-123.301,46.111],[-123.364,46.125]]},{"l":"OR 8","c":"st","p":[[-123.076,45.52],[-123.043,45.52]]},{"l":"OR 8","c":"st","p":[[-123.043,45.52],[-123.007,45.52]]},{"l":"OR 8","c":"st","p":[[-123.076,45.52],[-123.043,45.52]]},{"l":"OR 8","c":"st","p":[[-123.076,45.52],[-123.121,45.52],[-123.123,45.529],[-123.156,45.533],[-123.186,45.555],[-123.213,45.585],[-123.218,45.597],[-123.245,45.613]]},{"l":"OR 6","c":"st","p":[[-123.377,45.622],[-123.343,45.648],[-123.306,45.655],[-123.27,45.647],[-123.268,45.628],[-123.238,45.609],[-123.217,45.62],[-123.107,45.609],[-123.064,45.616]]},{"l":"US 26","c":"hwy","p":[[-122.744,45.508],[-122.781,45.51],[-123.07,45.618]]},{"l":"OR 22","c":"st","p":[[-123.044,44.945],[-123.044,44.945]]},{"l":"OR 22","c":"st","p":[[-123.043,44.946],[-123.081,44.929],[-123.129,44.932]]},{"l":"OR 18","c":"st","p":[[-123.802,45.045],[-123.819,45.027],[-123.862,45.021],[-123.895,45.003],[-123.908,45.003],[-123.942,45.02],[-123.976,45.019]]},{"l":"OR 22","c":"st","p":[[-123.042,44.94],[-123.042,44.94]]},{"l":"OR 22","c":"st","p":[[-123.042,44.94],[-123.035,44.935]]},{"l":"OR 22","c":"st","p":[[-123.034,44.934],[-123.03,44.933]]},{"l":"OR 22","c":"st","p":[[-123.03,44.933],[-123.029,44.933]]},{"l":"OR 22","c":"st","p":[[-123.026,44.929],[-123.029,44.933]]},{"l":"OR 22","c":"st","p":[[-123.042,44.94],[-123.035,44.935]]},{"l":"OR 22","c":"st","p":[[-123.035,44.935],[-123.034,44.934]]},{"l":"OR 22","c":"st","p":[[-123.029,44.933],[-123.026,44.929]]},{"l":"OR 22","c":"st","p":[[-123.034,44.934],[-123.03,44.933]]},{"l":"OR 22","c":"st","p":[[-123.023,44.929],[-123.004,44.92]]},{"l":"OR 22","c":"st","p":[[-123.026,44.929],[-123.023,44.929]]},{"l":"OR 22","c":"st","p":[[-123.023,44.929],[-123.004,44.92]]},{"l":"OR 18","c":"st","p":[[-123.977,45.015],[-123.976,45.019]]},{"l":"US 101","c":"hwy","p":[[-124.044,44.85],[-124.048,44.843]]},{"l":"US 101","c":"hwy","p":[[-124.037,44.863],[-124.044,44.851]]},{"l":"US 101","c":"hwy","p":[[-124.048,44.843],[-124.044,44.85]]},{"l":"US 101","c":"hwy","p":[[-124.044,44.85],[-124.044,44.851]]},{"l":"US 101","c":"hwy","p":[[-124.037,44.863],[-124.028,44.886],[-124.008,44.898],[-124.005,44.914],[-124.024,44.937],[-124.014,44.951],[-124.018,44.966],[-124.007,44.982],[-124.006,44.994],[-123.98,45.006],[-123.974,45.021],[-123.954,45.032],[-123.951,45.041],[-123.955,45.046]]},{"l":"US 101","c":"hwy","p":[[-124.044,44.851],[-124.037,44.863]]},{"l":"OR 22","c":"st","p":[[-122.673,44.785],[-122.727,44.796]]},{"l":"OR 18","c":"st","p":[[-123.975,45.019],[-123.976,45.019]]},{"l":"US 101","c":"hwy","p":[[-124.113,44.276],[-124.108,44.282],[-124.113,44.288],[-124.108,44.291],[-124.111,44.294],[-124.099,44.309],[-124.105,44.315],[-124.084,44.412],[-124.067,44.427],[-124.075,44.437],[-124.074,44.452],[-124.083,44.494],[-124.076,44.518],[-124.07,44.521],[-124.075,44.532],[-124.064,44.59],[-124.05,44.613],[-124.062,44.628],[-124.053,44.636],[-124.053,44.655],[-124.064,44.687],[-124.056,44.741],[-124.051,44.748],[-124.063,44.76],[-124.073,44.782],[-124.066,44.788],[-124.061,44.805],[-124.066,44.827],[-124.058,44.83],[-124.048,44.843]]},{"l":"US 101","c":"hwy","p":[[-123.955,45.046],[-123.946,45.075],[-123.982,45.101],[-123.968,45.119],[-123.969,45.144],[-123.95,45.158],[-123.933,45.163],[-123.929,45.175],[-123.92,45.184],[-123.909,45.185],[-123.891,45.206],[-123.877,45.213],[-123.872,45.229],[-123.861,45.23],[-123.865,45.239],[-123.848,45.247],[-123.848,45.268],[-123.838,45.268],[-123.824,45.28],[-123.822,45.295],[-123.834,45.303],[-123.842,45.32],[-123.837,45.335],[-123.82,45.342],[-123.805,45.362],[-123.803,45.393],[-123.824,45.409],[-123.824,45.434],[-123.842,45.448]]},{"l":"OR 22","c":"st","p":[[-123.044,44.945],[-123.051,44.943]]},{"l":"OR 22","c":"st","p":[[-123.049,44.945],[-123.049,44.945]]},{"l":"OR 22","c":"st","p":[[-123.052,44.953],[-123.053,44.956]]},{"l":"OR 22","c":"st","p":[[-123.053,44.956],[-123.052,44.953]]},{"l":"OR 22","c":"st","p":[[-123.049,44.945],[-123.052,44.953]]},{"l":"OR 22","c":"st","p":[[-123.076,44.978],[-123.059,44.967],[-123.053,44.956]]},{"l":"OR 22","c":"st","p":[[-123.053,44.956],[-123.059,44.967],[-123.076,44.978]]},{"l":"OR 22","c":"st","p":[[-123.438,44.721],[-123.454,44.736],[-123.454,44.744],[-123.429,44.745],[-123.415,44.751],[-123.411,44.761],[-123.418,44.763],[-123.419,44.771],[-123.404,44.789],[-123.402,44.811],[-123.363,44.84],[-123.356,44.856],[-123.338,44.873],[-123.329,44.887],[-123.334,44.897],[-123.329,44.914],[-123.317,44.919]]},{"l":"OR 47","c":"st","p":[[-123.159,45.233],[-123.159,45.233]]},{"l":"OR 22","c":"st","p":[[-123.129,44.932],[-123.162,44.933]]},{"l":"OR 22","c":"st","p":[[-123.162,44.933],[-123.241,44.935]]},{"l":"OR 22","c":"st","p":[[-123.241,44.935],[-123.162,44.933]]},{"l":"OR 99W","c":"st","p":[[-122.789,45.417],[-122.8,45.392],[-122.833,45.38],[-122.868,45.353],[-122.877,45.335],[-122.902,45.319]]},{"l":"OR 99W","c":"st","p":[[-122.744,45.443],[-122.772,45.431],[-122.789,45.417]]},{"l":"OR 99W","c":"st","p":[[-122.789,45.417],[-122.8,45.392],[-122.833,45.38],[-122.868,45.353],[-122.877,45.335],[-122.902,45.319]]},{"l":"OR 217","c":"st","p":[[-122.778,45.508],[-122.79,45.499],[-122.793,45.486],[-122.786,45.472],[-122.784,45.449],[-122.744,45.421]]},{"l":"OR 18","c":"st","p":[[-123.22,45.188],[-123.213,45.19]]},{"l":"OR 99W","c":"st","p":[[-123.005,45.285],[-122.992,45.294]]},{"l":"OR 99W","c":"st","p":[[-123.005,45.285],[-122.992,45.294]]},{"l":"OR 99W","c":"st","p":[[-122.992,45.294],[-122.983,45.3]]},{"l":"OR 18","c":"st","p":[[-123.213,45.19],[-123.196,45.192],[-123.178,45.201],[-123.122,45.205],[-123.063,45.238]]},{"l":"OR 18","c":"st","p":[[-123.22,45.188],[-123.213,45.19]]},{"l":"OR 18","c":"st","p":[[-123.451,45.075],[-123.338,45.102],[-123.22,45.188]]},{"l":"OR 18","c":"st","p":[[-123.725,45.071],[-123.715,45.072],[-123.701,45.061],[-123.681,45.058],[-123.666,45.061],[-123.588,45.059]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.467],[-123.844,45.467]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.465],[-123.844,45.465]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.459],[-123.844,45.459]]},{"l":"OR 99W","c":"st","p":[[-122.942,45.308],[-122.905,45.318]]},{"l":"OR 99W","c":"st","p":[[-122.905,45.318],[-122.902,45.319]]},{"l":"US 101","c":"hwy","p":[[-123.825,45.434],[-123.843,45.448],[-123.843,45.458]]},{"l":"OR 47","c":"st","p":[[-123.159,45.233],[-123.163,45.256],[-123.18,45.294],[-123.176,45.319],[-123.188,45.346],[-123.177,45.347],[-123.16,45.372],[-123.141,45.383],[-123.136,45.394],[-123.124,45.402],[-123.139,45.434]]},{"l":"US 30","c":"hwy","p":[[-122.699,45.541],[-122.733,45.555],[-122.754,45.569],[-122.798,45.612],[-122.863,45.661],[-122.874,45.679],[-122.871,45.698],[-122.875,45.721]]},{"l":"US 26","c":"hwy","p":[[-121.698,45.226],[-121.702,45.232],[-121.698,45.237],[-121.707,45.243],[-121.718,45.268],[-121.714,45.283],[-121.735,45.29],[-121.736,45.301],[-121.782,45.303],[-121.792,45.307],[-121.793,45.312],[-121.821,45.303],[-121.835,45.31],[-121.871,45.305],[-121.897,45.315],[-121.927,45.339],[-121.976,45.352],[-122.014,45.371],[-122.047,45.38],[-122.108,45.378],[-122.158,45.367],[-122.222,45.376],[-122.255,45.397]]},{"l":"OR 99W","c":"st","p":[[-123.21,45.194],[-123.208,45.197]]},{"l":"OR 22","c":"st","p":[[-122.576,45.421],[-122.573,45.414]]},{"l":"OR 22","c":"st","p":[[-122.576,45.422],[-122.574,45.415]]},{"l":"OR 22","c":"st","p":[[-122.645,45.45],[-122.634,45.448],[-122.623,45.437],[-122.596,45.425],[-122.576,45.422]]},{"l":"US 26","c":"hwy","p":[[-122.677,45.506],[-122.677,45.504]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.458],[-123.844,45.472]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.472],[-123.844,45.478]]},{"l":"US 101","c":"hwy","p":[[-123.957,45.783],[-123.943,45.773],[-123.963,45.755],[-123.961,45.745],[-123.932,45.734],[-123.928,45.719],[-123.894,45.718],[-123.892,45.71],[-123.877,45.699],[-123.882,45.69],[-123.891,45.686],[-123.924,45.688],[-123.923,45.67],[-123.941,45.634],[-123.948,45.589],[-123.944,45.573],[-123.934,45.561],[-123.923,45.558],[-123.892,45.563],[-123.906,45.548],[-123.897,45.528],[-123.851,45.497],[-123.844,45.478]]},{"l":"US 101","c":"hwy","p":[[-123.957,45.783],[-123.967,45.798],[-123.958,45.84],[-123.963,45.857],[-123.959,45.885],[-123.954,45.907],[-123.939,45.916],[-123.921,45.938]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.94],[-123.921,45.938]]},{"l":"US 101","c":"hwy","p":[[-123.921,45.938],[-123.918,45.936],[-123.919,45.94]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.942],[-123.921,45.938]]},{"l":"US 101","c":"hwy","p":[[-123.919,45.94],[-123.919,45.942]]},{"l":"OR 99W","c":"st","p":[[-123.21,45.075],[-123.207,45.135],[-123.197,45.151],[-123.209,45.171],[-123.21,45.194]]},{"l":"OR 99W","c":"st","p":[[-122.968,45.3],[-122.961,45.302]]},{"l":"OR 99W","c":"st","p":[[-122.968,45.3],[-122.968,45.3]]},{"l":"OR 99W","c":"st","p":[[-122.968,45.3],[-122.983,45.3]]},{"l":"OR 99W","c":"st","p":[[-122.677,45.492],[-122.683,45.489],[-122.68,45.472],[-122.744,45.443]]},{"l":"OR 99W","c":"st","p":[[-122.677,45.506],[-122.677,45.492]]},{"l":"OR 99W","c":"st","p":[[-122.677,45.506],[-122.677,45.492]]},{"l":"OR 22","c":"st","p":[[-123.043,44.946],[-123.042,44.94]]},{"l":"OR 22","c":"st","p":[[-123.042,44.94],[-123.044,44.945]]},{"l":"US 101","c":"hwy","p":[[-123.844,45.478],[-123.844,45.478]]},{"l":"US 101","c":"hwy","p":[[-123.739,46.793],[-123.741,46.778],[-123.755,46.76],[-123.744,46.739],[-123.748,46.733],[-123.741,46.726],[-123.744,46.715],[-123.738,46.696],[-123.73,46.688],[-123.731,46.682],[-123.741,46.68],[-123.75,46.685],[-123.801,46.663],[-123.812,46.667],[-123.847,46.699],[-123.875,46.684],[-123.915,46.677],[-123.921,46.672],[-123.918,46.646],[-123.923,46.626],[-123.914,46.615],[-123.919,46.599],[-123.916,46.573],[-123.892,46.546],[-123.886,46.519],[-123.888,46.479],[-123.874,46.459],[-123.872,46.448],[-123.857,46.437],[-123.856,46.431],[-123.9,46.435],[-123.906,46.429],[-123.916,46.43],[-123.924,46.419],[-123.934,46.416],[-123.939,46.403],[-123.952,46.403],[-123.95,46.373],[-123.955,46.351],[-123.977,46.333],[-124.055,46.331],[-124.055,46.324],[-124.044,46.318],[-124.043,46.309],[-124.034,46.309],[-124.007,46.322],[-123.97,46.307],[-123.948,46.276],[-123.923,46.254],[-123.909,46.246],[-123.875,46.241],[-123.872,46.235]]},{"l":"OR 22","c":"st","p":[[-122.781,44.812],[-122.794,44.817]]},{"l":"OR 22","c":"st","p":[[-122.789,44.816],[-122.781,44.812]]},{"l":"OR 22","c":"st","p":[[-122.043,45.08],[-122.055,45.08],[-122.058,45.087],[-122.072,45.092],[-122.069,45.108],[-122.076,45.117],[-122.072,45.122],[-122.079,45.127],[-122.078,45.133],[-122.085,45.143],[-122.105,45.151],[-122.121,45.161],[-122.124,45.167],[-122.133,45.168],[-122.15,45.161],[-122.168,45.182],[-122.173,45.183],[-122.168,45.19],[-122.182,45.197],[-122.204,45.188],[-122.215,45.193],[-122.219,45.2],[-122.225,45.2],[-122.228,45.212],[-122.251,45.228],[-122.259,45.241],[-122.277,45.249],[-122.295,45.264],[-122.317,45.271],[-122.324,45.28],[-122.34,45.289],[-122.353,45.35],[-122.388,45.381],[-122.422,45.394],[-122.45,45.385],[-122.47,45.398],[-122.497,45.395],[-122.506,45.41],[-122.538,45.408]]},{"l":"OR 22","c":"st","p":[[-122.576,45.422],[-122.538,45.408]]},{"l":"OR 22","c":"st","p":[[-122.571,45.407],[-122.538,45.408]]},{"l":"OR 18","c":"st","p":[[-123.511,45.051],[-123.534,45.051],[-123.555,45.06]]},{"l":"OR 22","c":"st","p":[[-123.511,45.051],[-123.534,45.051],[-123.555,45.06]]},{"l":"OR 18","c":"st","p":[[-123.511,45.051],[-123.481,45.06]]},{"l":"OR 18","c":"st","p":[[-123.555,45.06],[-123.574,45.061]]},{"l":"OR 18","c":"st","p":[[-123.511,45.051],[-123.534,45.051],[-123.555,45.06]]},{"l":"OR 18","c":"st","p":[[-123.588,45.059],[-123.574,45.061]]},{"l":"OR 18","c":"st","p":[[-123.588,45.059],[-123.574,45.061]]},{"l":"OR 22","c":"st","p":[[-123.511,45.051],[-123.534,45.051],[-123.555,45.06]]},{"l":"OR 22","c":"st","p":[[-123.511,45.051],[-123.493,45.055]]},{"l":"OR 22","c":"st","p":[[-123.555,45.06],[-123.572,45.062],[-123.577,45.076]]},{"l":"US 26","c":"hwy","p":[[-122.678,45.5],[-122.559,45.496],[-122.515,45.499],[-122.472,45.49],[-122.457,45.497],[-122.415,45.498],[-122.401,45.489],[-122.397,45.477]]},{"l":"OR 99E","c":"st","p":[[-122.824,45.16],[-122.823,45.16]]},{"l":"OR 99W","c":"st","p":[[-123.15,45.238],[-123.15,45.238]]},{"l":"OR 22","c":"st","p":[[-123.004,44.92],[-122.982,44.914]]},{"l":"OR 99W","c":"st","p":[[-123.026,45.262],[-123.026,45.262]]},{"l":"OR 22","c":"st","p":[[-123.315,44.926],[-123.298,44.931],[-123.251,44.928],[-123.238,44.933]]},{"l":"US 30","c":"hwy","p":[[-122.875,45.721],[-122.879,45.773],[-122.833,45.846],[-122.819,45.862],[-122.811,45.878],[-122.812,45.895],[-122.836,45.924],[-122.86,45.945],[-122.868,45.96],[-122.866,45.976],[-122.878,45.998],[-122.876,46.018],[-122.898,46.04],[-122.897,46.065],[-122.916,46.084],[-122.965,46.095]]},{"l":"OR 43","c":"st","p":[[-122.969,46.096],[-122.962,46.105]]},{"l":"OR 22","c":"st","p":[[-123.948,44.632],[-123.953,44.655],[-123.948,44.669],[-123.956,44.681],[-123.946,44.695],[-123.947,44.705],[-123.918,44.717],[-123.913,44.743],[-123.915,44.772],[-123.897,44.796],[-123.907,44.8],[-123.958,44.803],[-123.971,44.814],[-123.962,44.828],[-123.981,44.844],[-123.972,44.857],[-123.934,44.859],[-123.937,44.874],[-123.92,44.872],[-123.918,44.88],[-123.936,44.886],[-123.979,44.882],[-124.007,44.902]]},{"l":"OR 47","c":"st","p":[[-123.216,45.78],[-123.228,45.797],[-123.233,45.825],[-123.218,45.84],[-123.2,45.846],[-123.198,45.859],[-123.172,45.858],[-123.17,45.874],[-123.15,45.887],[-123.158,45.894],[-123.156,45.9],[-123.143,45.903],[-123.141,45.922],[-123.166,45.937],[-123.162,45.944],[-123.167,45.952],[-123.165,45.958],[-123.18,45.975],[-123.19,45.979],[-123.211,45.973],[-123.25,45.985],[-123.257,45.995],[-123.243,46.003],[-123.247,46.015],[-123.241,46.024],[-123.248,46.035],[-123.247,46.041],[-123.264,46.054],[-123.267,46.064],[-123.26,46.077],[-123.26,46.094],[-123.247,46.096],[-123.223,46.11],[-123.207,46.107]]},{"l":"OR 22","c":"st","p":[[-123.048,44.945],[-123.049,44.945]]},{"l":"OR 99E","c":"st","p":[[-122.75,45.234],[-122.717,45.253],[-122.674,45.27],[-122.656,45.289],[-122.663,45.305],[-122.657,45.327],[-122.647,45.337],[-122.618,45.349],[-122.601,45.364],[-122.602,45.377],[-122.632,45.416],[-122.635,45.433],[-122.641,45.44],[-122.639,45.462]]},{"l":"OR 22","c":"st","p":[[-122.673,44.785],[-122.619,44.792],[-122.594,44.789],[-122.51,44.758],[-122.397,44.754],[-122.318,44.76],[-122.283,44.752],[-122.271,44.735],[-122.254,44.728],[-122.231,44.703],[-122.219,44.698],[-122.201,44.703],[-122.185,44.726],[-122.157,44.741],[-122.148,44.73],[-122.117,44.713],[-122.059,44.698],[-122.044,44.689],[-122.0,44.689],[-121.981,44.694],[-121.971,44.689]]},{"l":"OR 43","c":"st","p":[[-122.673,45.499],[-122.676,45.487],[-122.671,45.469],[-122.653,45.439],[-122.655,45.433]]}]},"live":true};
+(function(){
+var NS='http://www.w3.org/2000/svg', TZ='America/Los_Angeles', POLL_MS=300000;
+var cams=DATA.cams, byId={}, sites=DATA.sites, geo=DATA.geo, bad=DATA.bad||{};
+cams.forEach(function(c){byId[c.id]=c});
+function $(id){return document.getElementById(id)}
+function el(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e}
+var f1=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',timeZone:TZ}),f2=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:TZ});
+function fmt(ts){return f1.format(ts*1000)}
+function fmtS(ts){return f2.format(ts*1000)}
+function ageTxt(sec){if(sec<60)return 'just now';var m=Math.round(sec/60);if(m<60)return m+' min ago';var h=Math.floor(m/60);return h+' h '+(m%60)+' min ago'}
+function cls(sec){return sec<=600?'fresh':(sec<=1200?'aging':'stale')}
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- data layer: rolling 3 hour memory per camera ---------- */
+var B={min:0,max:0};
+var S={cursor:0,play:false,speed:60,screen:'map',sel:null,follow:true,tv:false,labels:false,tile:320,mapRadar:false,mapTemps:true,l:{radar:true,temps:true,cams:true},sview:'region',wxSort:'near',wxAll:false,checked:0,feed:'none',last:0,loopHold:0};
+var SN={};                       /* snapshot: camera id -> frame shown at the cursor */
+function atLatest(){return S.cursor>=B.max-1}
+function ref(){return atLatest()?Math.max(S.cursor,Date.now()/1000):S.cursor}
+function snapshot(){var s={};for(var i=0;i<cams.length;i++)s[cams[i].id]=Store.at(cams[i].id,S.cursor);s.radar=Store.at('radar',S.cursor);SN=s;return s}
+function newest(){var best=null,bt=-1;for(var i=0;i<cams.length;i++){var f=SN[cams[i].id];if(f&&f[0]>bt){bt=f[0];best=cams[i].id}}return best}
+function kind(id){var f=SN[id];return f?cls(ref()-f[0]):(Store.list(id).length?'stale':'none')}
+function camMax(){var m=0;cams.forEach(function(c){var a=Store.list(c.id);if(a.length&&a[a.length-1][0]>m)m=a[a.length-1][0]});return m}
+function sigOf(){var rf=SN.radar,s=Math.floor(ref()/20)+'|'+(rf?rf[0]:0)+'|';for(var i=0;i<cams.length;i++){var f=SN[cams[i].id];s+=(f?f[0]:0)+','}return s}
+
+/* Add one image. Preloads first so a broken or slow file never reaches the screen. */
+function addFrame(id,ts,src,quiet){
+  var go=function(){
+    var wasLatest=atLatest()||B.max===0;
+    var r=Store.add(id,ts,src);if(!r)return;
+    B=Store.bounds();
+    if(wasLatest)S.cursor=B.max;
+    if(!quiet)schedule();
+  };
+  if(quiet){go();return}
+  var im=new Image();im.onload=go;im.onerror=function(){};im.src=src;
+}
+Store.setOnRemove(function(id,fr){if(/^blob:/.test(fr[1]))try{URL.revokeObjectURL(fr[1])}catch(e){}});
+var DF=DATA.frames||{};Object.keys(DF).forEach(function(id){DF[id].forEach(function(f){addFrame(Number(id),f[0],f[1],true)})});
+var RM={};((DATA.radar&&DATA.radar.frames)||[]).forEach(function(f){addFrame('radar',f[0],f[1],true);RM[f[1]]=f.slice(2)});
+B=Store.bounds();S.cursor=B.max;
+
+/* Check for new images every 5 minutes. The page can only read files published with it, so this
+   reads feed.json next to the page: {"frames":[[cameraId,unixTime,"c/file.jpg"],...]}. */
+function poll(){
+  fetch('feed.json?'+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
+    var first=!S.loaded;S.feed='ok';S.feedAsof=j.asof||0;
+    (j.frames||[]).forEach(function(f){var k=f[0]+':'+f[1];if(known[k])return;known[k]=1;addFrame(f[0],f[1],f[2],first)});
+    if(j.wx){WX=j.wx;buildStations();wxVer++;drawMapChips();sDirty=true}
+    if(j.bad)bad=j.bad;
+    (j.radar||[]).forEach(function(f){var k='r:'+f[0];RM[f[1]]=f.slice(2);if(known[k])return;known[k]=1;addFrame('radar',f[0],f[1],first)});
+    if(first){S.loaded=true;B=Store.bounds();S.cursor=B.max;cams.forEach(function(c){var f=Store.at(c.id,B.max);if(f){var im=new Image();im.src=f[1]}});Store.list('radar').forEach(function(f){var im=new Image();im.src=f[1]})}
+    schedule();
+  }).catch(function(){S.feed='none'}).then(function(){S.checked=Date.now()/1000;$('loading').hidden=true;loadSchedule();renderBanner();schedule()});
+}
+var known={};
+
+/* ---------- projection and shared symbols ---------- */
+var cosl=Math.cos(45.52*Math.PI/180),LON0=-123.02,LAT1=45.58,K=8400;
+function P(lon,lat){return [(lon-LON0)*cosl*K,(LAT1-lat)*K]}
+function pathOf(p,d){return 'M'+p.map(function(z){var u=P(z[0],z[1]);return u[0].toFixed(d)+' '+u[1].toFixed(d)}).join('L')}
+var cityD=geo.city.map(function(r){return pathOf(r,1)+'Z'}).join('');
+var BB;
+(function(){var sym=$('citysym'),a={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
+ geo.city.forEach(function(r){r.forEach(function(p){var z=P(p[0],p[1]);a.x0=Math.min(a.x0,z[0]);a.x1=Math.max(a.x1,z[0]);a.y0=Math.min(a.y0,z[1]);a.y1=Math.max(a.y1,z[1])})});
+ var pad=30;BB=[a.x0-pad,a.y0-pad,a.x1-a.x0+2*pad,a.y1-a.y0+2*pad];
+ sym.setAttribute('viewBox',BB.join(' '));
+ el('path',{d:cityD,fill:'var(--city)',stroke:'var(--cityline)','stroke-width':6,'stroke-linejoin':'round'},sym);
+ geo.roads.filter(function(r){return r.c==='hwy'||/Baseline|Cornell|185th|Brookwood|Cornelius/.test(r.l)}).forEach(function(r){
+   el('path',{d:pathOf(r.p,0),fill:'none',stroke:r.c==='hwy'?'var(--roadh)':'var(--roada)','stroke-width':r.c==='hwy'?9:6},sym)});
+})();
+
+/* ---------- main map ---------- */
+var svg=$('map'),vb,gMark,markers={},vbq=0;
+function buildMap(){
+  el('rect',{x:-2000,y:-2000,width:6000,height:6000,fill:'var(--map)'},svg);
+  el('path',{d:cityD,fill:'var(--city)',stroke:'var(--cityline)','stroke-width':3,'stroke-dasharray':'12 8','stroke-linejoin':'round'},svg);
+  var a0=P(EXT[0],EXT[1]),a1=P(EXT[2],EXT[3]);mapRad=el('image',{x:a0[0],y:a0[1],width:a1[0]-a0[0],height:a1[1]-a0[1],preserveAspectRatio:'none',opacity:.72},svg);mapRad.style.display='none';
+  var gr=el('g',{},svg),gl=el('g',{},svg);
+  ['art','hwy'].forEach(function(c){geo.roads.filter(function(r){return r.c===c}).forEach(function(r){
+    el('path',{d:pathOf(r.p,1),fill:'none',stroke:c==='hwy'?'var(--roadh)':'var(--roada)','stroke-width':c==='hwy'?7:4.5,'stroke-linecap':'round','stroke-linejoin':'round'},gr)})});
+  var want={'US 26':1,'OR 8':1,'Baseline Rd':1,'Cornell Rd':1,'Evergreen Pkwy':1,'Brookwood':1,'Cornelius Pass Rd':1,'185th Ave':1,'Jackson School Rd':1,'Main St':1,'Century Blvd':1},best={};
+  geo.roads.forEach(function(r){if(want[r.l]&&(!best[r.l]||r.p.length>best[r.l].p.length))best[r.l]=r});
+  Object.keys(best).forEach(function(k){var r=best[k],i=Math.floor(r.p.length/2),p0=r.p[Math.max(0,i-1)],p1=r.p[Math.min(r.p.length-1,i)],a=P(p0[0],p0[1]),b=P(p1[0],p1[1]);
+    var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2-6;
+    var t=el('text',{x:mx,y:my,transform:'rotate('+ang.toFixed(1)+' '+mx+' '+my+')','text-anchor':'middle','font-size':14,'font-weight':600,fill:'var(--muted)',stroke:'var(--halo)','stroke-width':4,'paint-order':'stroke'},gl);t.textContent=k});
+  gMark=el('g',{},svg);
+  gWxMap=el('g',{},svg);
+  sites.forEach(function(s){var z=P(s.lon,s.lat),g=el('g',{class:'site'},gMark);g.dataset.x=z[0];g.dataset.y=z[1];
+    el('rect',{x:-9,y:-9,width:18,height:18,rx:2,fill:'var(--green)',stroke:'var(--panel)','stroke-width':2.5,transform:'rotate(45)'},g);
+    var t=el('text',{x:15,y:5,'font-size':15,'font-weight':700,fill:'var(--ink)',stroke:'var(--halo)','stroke-width':4,'paint-order':'stroke'},g);t.textContent=s.n});
+  cams.forEach(function(c){var z=P(c.lon,c.lat),g=el('g',{class:'pin f-none',tabindex:0,role:'button','aria-label':c.n},gMark);g.dataset.x=z[0];g.dataset.y=z[1];
+    var pu=el('circle',{class:'pulse',r:12,fill:'var(--green)',opacity:0},g);pu.style.display='none';
+    el('circle',{class:'body',r:10},g);
+    var x=el('text',{class:'x',x:0,y:5,'text-anchor':'middle','font-size':15,'font-weight':700,fill:'#fff'},g);x.textContent='\u00d7';
+    var t=el('text',{class:'lab',x:15,y:5,'font-size':14,'font-weight':600,fill:'var(--ink)',stroke:'var(--halo)','stroke-width':4,'paint-order':'stroke'},g);t.textContent=c.s;
+    g._pu=pu;g._k='';
+    g.addEventListener('click',function(e){e.stopPropagation();selectCam(c.id)});
+    g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectCam(c.id)}});
+    markers[c.id]=g});
+  drawMapChips();fitView();
+}
+function applyVB(){vbq=0;svg.setAttribute('viewBox',vb.x.toFixed(1)+' '+vb.y.toFixed(1)+' '+vb.w.toFixed(1)+' '+vb.h.toFixed(1));
+  var sc=Math.max(.45,vb.w/1000*1.15).toFixed(3);
+  [gWxMap,gMark].forEach(function(grp){for(var i=0;i<grp.children.length;i++){var g=grp.children[i];g.setAttribute('transform','translate('+g.dataset.x+','+g.dataset.y+') scale('+sc+')')}})}
+function setVB(){if(!vbq)vbq=requestAnimationFrame(applyVB)}
+function fitView(){
+  var xs=[],ys=[];cams.concat(sites).forEach(function(c){var z=P(c.lon,c.lat);xs.push(z[0]);ys.push(z[1])});
+  var x0=Math.min.apply(0,xs),x1=Math.max.apply(0,xs),y0=Math.min.apply(0,ys),y1=Math.max.apply(0,ys);
+  var w=(x1-x0)*1.18+120,h=(y1-y0)*1.18+120;if(w/h<1.25)w=h*1.25;else h=w/1.25;
+  vb={x:(x0+x1)/2-w/2,y:(y0+y1)/2-h/2,w:w,h:h};applyVB()}
+function zoom(f,cx,cy){var nw=Math.max(150,Math.min(2400,vb.w*f)),r=nw/vb.w;
+  if(cx==null){cx=vb.x+vb.w/2;cy=vb.y+vb.h/2}
+  vb={x:cx-(cx-vb.x)*r,y:cy-(cy-vb.y)*r,w:nw,h:vb.h*r};setVB()}
+$('z-in').onclick=function(){zoom(.7)};$('z-out').onclick=function(){zoom(1.4)};$('z-fit').onclick=fitView;
+svg.addEventListener('wheel',function(e){e.preventDefault();var r=svg.getBoundingClientRect();zoom(e.deltaY>0?1.15:.87,vb.x+(e.clientX-r.left)/r.width*vb.w,vb.y+(e.clientY-r.top)/r.height*vb.h)},{passive:false});
+var drag=null;
+svg.addEventListener('pointerdown',function(e){if(e.target.closest&&e.target.closest('.pin'))return;drag={x:e.clientX,y:e.clientY,vx:vb.x,vy:vb.y};svg.classList.add('drag');svg.setPointerCapture(e.pointerId)});
+svg.addEventListener('pointermove',function(e){if(!drag)return;var r=svg.getBoundingClientRect();vb.x=drag.vx-(e.clientX-drag.x)/r.width*vb.w;vb.y=drag.vy-(e.clientY-drag.y)/r.height*vb.h;setVB()});
+svg.addEventListener('pointerup',function(){drag=null;svg.classList.remove('drag')});
+
+
+/* ---------- weather: road stations, airport trend, radar ---------- */
+var WX=DATA.wx||{stations:[],khio:[],alerts:null},RG=DATA.region||null,stations=[],wxVer=0,sDirty=true;
+function buildStations(){
+  stations=(WX.stations||[]).slice();var k=WX.khio||[];
+  if(k.length){var l=k[k.length-1];stations.push({id:'KHIO',n:'Hillsboro Airport (NWS)',lat:45.5404,lon:-122.9498,air:l[1],road:null,dew:l[2],hum:null,wind:l[3],dir:'',gust:null,vis:'',upd:l[0],mi:Math.round(dist(45.52261,-122.98963,45.5404,-122.9498)*10)/10})}
+  stations.sort(function(a,b){return a.mi-b.mi});
+}
+buildStations();
+function risk(s){var a=s.air,r=s.road;
+  if((r!=null&&r<=32)||(a!=null&&a<=32))return 'freeze';
+  if((r!=null&&r<=35)||(a!=null&&a<=36))return 'watch';
+  return 'ok'}
+var RTXT={freeze:'Freezing',watch:'Watch',ok:'Above freezing'},RORD={freeze:0,watch:1,ok:2};
+function tF(v){return v==null?'--':Math.round(v)+'\u00b0'}
+function stAge(s){return s.upd?Date.now()/1000-s.upd:null}
+function stWhen(s){var a=stAge(s);return s.upd?fmt(s.upd)+(a>=0?' ('+ageTxt(a)+')':''):'time not reported'}
+function nearestWx(c,needRoad){var b=null,bd=1e9;stations.forEach(function(s){if(needRoad?s.road==null:s.air==null)return;var d=dist(c.lat,c.lon,s.lat,s.lon);if(d<bd){bd=d;b=s}});return b?{s:b,d:bd}:null}
+function wxText(c){var a=nearestWx(c,false),r=nearestWx(c,true),o=[];
+  if(a)o.push('Air '+tF(a.s.air)+'F at '+a.s.n+', '+a.d.toFixed(1)+' mi');
+  if(r)o.push('Pavement '+tF(r.s.road)+'F at '+r.s.n+', '+r.d.toFixed(1)+' mi');
+  return o.length?o.join('. ')+'.':'No station reporting nearby.'}
+function khioTrend(){var k=WX.khio||[];if(k.length<3)return null;var n=k.length,sx=0,sy=0,sxx=0,sxy=0,t0=k[0][0];
+  k.forEach(function(o){var x=(o[0]-t0)/3600,y=o[1];sx+=x;sy+=y;sxx+=x*x;sxy+=x*y});
+  var d=n*sxx-sx*sx;if(!d)return null;var m=(n*sxy-sx*sy)/d,l=k[n-1];
+  return {rate:m,now:l[1],dew:l[2],wind:l[3],desc:l[4],ts:l[0]}}
+function trendTxt(tr){if(!tr)return '';var r=tr.rate;if(Math.abs(r)<.5)return 'steady';return (r<0?'falling ':'rising ')+Math.abs(r).toFixed(1)+'\u00b0F per hour'}
+function freezeEta(tr){if(!tr||tr.rate>-.5||tr.now<=32)return '';var h=(tr.now-32)/-tr.rate;if(h>12)return '';return 'At this rate it reaches 32\u00b0F in about '+(h<1.5?Math.round(h*60)+' min':h.toFixed(1)+' h')+'.'}
+function renderWxPill(){var p=$('wxpill'),tr=khioTrend();if(!tr){p.hidden=true;return}p.hidden=false;p.textContent='Airport '+tF(tr.now)+'F, '+trendTxt(tr)}
+function dbzWord(d){return d<20?'very light':(d<30?'light':(d<40?'moderate':(d<50?'heavy':'very heavy')))}
+function chipNode(s,fs){var g=document.createElementNS(NS,'g');g.setAttribute('class','chip r-'+risk(s));
+  var both=s.road!=null&&s.air!=null,txt=both?tF(s.air)+'/'+tF(s.road):(s.air==null?'P '+tF(s.road):tF(s.air)),w=(both?60:(s.air==null?48:36))*fs,h=21*fs;
+  el('rect',{x:-w/2,y:-h/2,width:w,height:h,rx:5*fs},g);
+  var tx=el('text',{x:0,y:4.9*fs,'text-anchor':'middle','font-size':13.5*fs,'font-weight':700},g);tx.textContent=txt;
+  var ti=el('title',{},g);ti.textContent=s.n+': air '+tF(s.air)+'F'+(s.road!=null?', pavement '+tF(s.road)+'F':'')+'. '+RTXT[risk(s)]+'. Updated '+stWhen(s);
+  g._w=w;g._h=h;return g}
+var gWxMap=null,mapRad=null;
+function drawMapChips(){if(!gWxMap)return;gWxMap.replaceChildren();
+  if(S.mapTemps)stations.forEach(function(s){if(s.mi>7)return;var z=P(s.lon,s.lat),g=chipNode(s,1);g.dataset.x=z[0];g.dataset.y=z[1]-26;gWxMap.appendChild(g)});
+  if(vb)applyVB()}
+function renderMapWx(){if(!mapRad)return;var f=SN.radar;
+  if(S.mapRadar&&f&&ref()-f[0]<1800){if(mapRad._s!==f[1]){mapRad._s=f[1];mapRad.setAttribute('href',f[1])}mapRad.style.display=''}else mapRad.style.display='none'}
+
+/* ---------- Storm screen ---------- */
+var EXT=(DATA.radar&&DATA.radar.ext)||[-124,46.2,-122,44.8],COS=Math.cos(45.5*Math.PI/180);
+var ssvg=$('smap'),K2=1000/((EXT[2]-EXT[0])*COS),H2=(EXT[1]-EXT[3])*K2,sRad,gStChips,gStCams,sDots={},sBuilt=false,sv={x:0,y:0,w:1000,h:H2};
+function P2(lon,lat){return [(lon-EXT[0])*COS*K2,(EXT[1]-lat)*K2]}
+function lineD(r,close){return 'M'+r.map(function(p){var q=P2(p[0],p[1]);return q[0].toFixed(1)+' '+q[1].toFixed(1)}).join('L')+(close?'Z':'')}
+var TOWNS=[['Portland',45.523,-122.676],['Vancouver',45.639,-122.661],['Beaverton',45.487,-122.804],['Forest Grove',45.52,-123.11],['Salem',44.943,-123.035],['McMinnville',45.21,-123.196],['Newberg',45.3,-122.973],['Oregon City',45.357,-122.607],['Gresham',45.498,-122.43],['Longview',46.138,-122.938],['Scappoose',45.755,-122.876],['Vernonia',45.859,-123.186],['Tillamook',45.456,-123.844],['Sandy',45.397,-122.262]];
+function buildStorm(){
+  if(sBuilt||!RG)return;sBuilt=true;
+  el('rect',{x:-100,y:-100,width:1200,height:H2+200,fill:'var(--map)'},ssvg);
+  var gc=el('g',{},ssvg);
+  RG.counties.forEach(function(r){el('path',{d:lineD(r,true),fill:'var(--city)',stroke:'var(--cityline)','stroke-width':1.3,'stroke-linejoin':'round'},gc)});
+  sRad=el('image',{x:0,y:0,width:1000,height:H2,preserveAspectRatio:'none'},ssvg);sRad.style.display='none';
+  var gr=el('g',{},ssvg),gl=el('g',{},ssvg),best={};
+  RG.roads.forEach(function(r){el('path',{d:lineD(r.p,false),fill:'none',stroke:r.c==='hwy'?'var(--roadh)':'var(--roada)','stroke-width':r.c==='hwy'?2.6:1.5,'stroke-linecap':'round','stroke-linejoin':'round'},gr);
+    if(r.c==='hwy'||/OR 217|OR 99W|OR 18|OR 6$/.test(r.l)){if(!best[r.l]||r.p.length>best[r.l].p.length)best[r.l]=r}});
+  Object.keys(best).forEach(function(k){var r=best[k],i=Math.floor(r.p.length/2),a=P2(r.p[Math.max(0,i-1)][0],r.p[Math.max(0,i-1)][1]),b=P2(r.p[Math.min(r.p.length-1,i)][0],r.p[Math.min(r.p.length-1,i)][1]);
+    var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2-5;
+    var t=el('text',{x:mx,y:my,transform:'rotate('+ang.toFixed(1)+' '+mx+' '+my+')','text-anchor':'middle','font-size':11,'font-weight':700,fill:'var(--muted)',stroke:'var(--halo)','stroke-width':3,'paint-order':'stroke'},gl);t.textContent=k});
+  TOWNS.forEach(function(w){var z=P2(w[2],w[1]);el('circle',{cx:z[0],cy:z[1],r:2.6,fill:'var(--muted)'},gl);var t=el('text',{x:z[0]+5,y:z[1]+4,'font-size':12,fill:'var(--muted)',stroke:'var(--halo)','stroke-width':3,'paint-order':'stroke'},gl);t.textContent=w[0]});
+  el('path',{d:geo.city.map(function(r){return lineD(r,true)}).join(''),fill:'var(--blue)','fill-opacity':.14,stroke:'var(--blue)','stroke-width':1.6},ssvg);
+  gStCams=el('g',{},ssvg);
+  cams.forEach(function(c){var z=P2(c.lon,c.lat),d=el('circle',{cx:z[0],cy:z[1],r:4.2,fill:'var(--gray)',stroke:'var(--panel)','stroke-width':1.2},gStCams);var ti=el('title',{},d);ti.textContent=c.n;sDots[c.id]=d});
+  gStChips=el('g',{},ssvg);
+  var hz=P2(-122.9896,45.5226),ht=el('text',{x:hz[0]-8,y:hz[1]-10,'text-anchor':'end','font-size':14,'font-weight':700,fill:'var(--ink)',stroke:'var(--halo)','stroke-width':3.5,'paint-order':'stroke'},ssvg);ht.textContent='Hillsboro';
+  setSView(S.sview);
+}
+function setSView(n){S.sview=n;var c=P2(-122.9896,45.5226),w=n==='region'?1000:(n==='metro'?420:150);
+  sv=n==='region'?{x:0,y:0,w:1000,h:H2}:{x:c[0]-w/2,y:c[1]-w/2,w:w,h:w};
+  ssvg.setAttribute('viewBox',sv.x.toFixed(1)+' '+sv.y.toFixed(1)+' '+sv.w.toFixed(1)+' '+sv.h.toFixed(1));
+  Array.prototype.forEach.call(document.querySelectorAll('#viewseg button'),function(b){b.setAttribute('aria-pressed',b.dataset.v===n)});
+  sDirty=true;if(sBuilt)drawStormChips()}
+function drawStormChips(){sDirty=false;gStChips.replaceChildren();if(!S.l.temps)return;
+  var fs=Math.max(.2,sv.w/1000),placed=[];
+  stations.slice().sort(function(a,b){return RORD[risk(a)]-RORD[risk(b)]||a.mi-b.mi}).forEach(function(s){
+    var z=P2(s.lon,s.lat);if(z[0]<sv.x||z[0]>sv.x+sv.w||z[1]<sv.y||z[1]>sv.y+sv.h)return;
+    var g=chipNode(s,fs),hit=placed.some(function(q){return Math.abs(q.x-z[0])<(q.w+g._w)/2+2*fs&&Math.abs(q.y-z[1])<(q.h+g._h)/2+2*fs});
+    if(hit){var d=el('circle',{cx:z[0],cy:z[1],r:4*fs,class:'chipdot r-'+risk(s)},gStChips),ti=el('title',{},d);ti.textContent=s.n+': air '+tF(s.air)+'F'+(s.road!=null?', pavement '+tF(s.road)+'F':'');return}
+    placed.push({x:z[0],y:z[1],w:g._w,h:g._h});g.setAttribute('transform','translate('+z[0]+','+z[1]+')');gStChips.appendChild(g)})}
+var wxNowBuilt=false,wxKey='',wxNowKey='';
+function renderStorm(){
+  if(!sBuilt)buildStorm();if(!sBuilt)return;
+  var f=SN.radar,ok=f&&ref()-f[0]<1800;
+  if(S.l.radar&&ok){if(sRad._s!==f[1]){sRad._s=f[1];sRad.setAttribute('href',f[1])}sRad.style.display=''}else sRad.style.display='none';
+  var st=$('sstamp');st.textContent=f?'Radar scan '+fmt(f[0])+(ok?'':', too old for this time'):'No radar scan saved for this time';st.className='stamp'+(f&&ref()-f[0]>900?' old':'');
+  gStCams.style.display=S.l.cams?'':'none';
+  cams.forEach(function(c){var k=kind(c.id),d=sDots[c.id];if(d._k!==k){d._k=k;d.setAttribute('fill',k==='none'?'var(--red)':(k==='fresh'?'var(--green)':(k==='aging'?'var(--amber)':'var(--gray)')))}});
+  if(sDirty)drawStormChips();
+  renderWxNow(f,ok);renderWxList();
+}
+function renderWxNow(f,ok){
+  var box=$('wx-now');
+  if(!wxNowBuilt){wxNowBuilt=true;
+    box.innerHTML='<h2>Storm status</h2><div class="wxstat"><div><div class="cap">Radar near Hillsboro</div><div class="big" id="w-r1"></div><div class="cap" id="w-r2"></div></div><div><div class="cap">Hillsboro Airport</div><div class="big" id="w-k1"></div><div class="cap" id="w-k2"></div></div></div><svg class="spark" id="w-sp" viewBox="0 0 300 44" preserveAspectRatio="none" role="img" aria-label="Airport temperature, last 3 hours"></svg><div class="cap" id="w-k3"></div><div class="alertbox" id="w-al"></div>'}
+  var r1,r2;
+  if(!f||!ok){r1='No scan';r2='No radar scan saved for this time.'}
+  else{var s=RM[f[1]]||[];var pct=s[0],mx=s[1],nr=s[2];
+    if(mx!=null){r1=dbzWord(mx)[0].toUpperCase()+dbzWord(mx).slice(1);r2='Echo within 15 mi of Hillsboro, strongest '+Math.round(mx)+' dBZ.'}
+    else if(nr!=null){r1='Dry here';r2='Nearest echo about '+nr+' mi from Hillsboro. '+pct+'% of the view has precipitation.'}
+    else{r1='Dry';r2=(pct>0?pct+'% of the view has light echoes, none near Hillsboro.':'No precipitation echoes anywhere in the view.')}}
+  var tr=khioTrend();
+  var k1=tr?tF(tr.now)+'F':'--',k2=tr?(trendTxt(tr)+(tr.dew!=null?'. Dew point '+tF(tr.dew)+'F':'')+(tr.wind!=null?'. Wind '+tr.wind+' mph':'')+'. '+(tr.desc||'')):'No airport observations.',k3=tr?freezeEta(tr):'';
+  var al=WX.alerts,at,on=false;
+  if(al===null||al===undefined)at='Could not check National Weather Service alerts.';
+  else if(!al.length)at='No active National Weather Service alerts for Hillsboro.';
+  else{on=true;at=al.map(function(a){return a.event+(a.headline?': '+a.headline:'')}).join(' | ')}
+  var key=[r1,r2,k1,k2,k3,at,wxVer].join('~');if(key===wxNowKey)return;wxNowKey=key;
+  $('w-r1').textContent=r1;$('w-r2').textContent=r2;$('w-k1').textContent=k1;$('w-k2').textContent=k2;$('w-k3').textContent=k3;
+  var ae=$('w-al');ae.textContent=at;ae.className='alertbox'+(on?' on':'');
+  var sp=$('w-sp'),k=WX.khio||[];sp.replaceChildren();
+  if(k.length>2){var t0=k[0][0],t1=k[k.length-1][0]||t0+1,lo=Math.min.apply(0,k.map(function(o){return o[1]}).concat([32])),hi=Math.max.apply(0,k.map(function(o){return o[1]}));if(hi-lo<6)hi=lo+6;
+    var X=function(ts){return (ts-t0)/Math.max(1,t1-t0)*296+2},Y=function(v){return 42-(v-lo)/(hi-lo)*40};
+    el('line',{x1:0,x2:300,y1:Y(32),y2:Y(32)},sp);el('path',{d:'M'+k.map(function(o){return X(o[0]).toFixed(1)+' '+Y(o[1]).toFixed(1)}).join('L')},sp)}
+}
+function renderWxList(){
+  var box=$('wxlist'),arr=stations.slice();
+  if(S.wxSort==='cold')arr.sort(function(a,b){var x=Math.min(a.air==null?999:a.air,a.road==null?999:a.road),y=Math.min(b.air==null?999:b.air,b.road==null?999:b.road);return x-y||a.mi-b.mi});
+  var shown=S.wxAll?arr:arr.slice(0,10),key=S.wxSort+'|'+S.wxAll+'|'+wxVer+'|'+Math.floor(Date.now()/60000);if(key===wxKey)return;wxKey=key;
+  var fr=document.createDocumentFragment();
+  shown.forEach(function(s){var r=document.createElement('div');r.className='wxrow';
+    var b=document.createElement('span');b.className='risk '+risk(s);b.textContent=RTXT[risk(s)];
+    var m=document.createElement('div'),n=document.createElement('div');n.className='wn';n.textContent=s.n;var c=document.createElement('div');c.className='cap';
+    var bits=[];if(s.dew!=null)bits.push('Dew '+tF(s.dew));if(s.wind!=null)bits.push('Wind '+s.wind+' mph'+(s.dir?' '+s.dir:''));bits.push(s.mi+' mi away');bits.push((stAge(s)>3600?'Old reading, ':'')+stWhen(s));
+    c.textContent=bits.join(' / ');m.appendChild(n);m.appendChild(c);
+    var tp=document.createElement('div');tp.className='tmp';var bg=document.createElement('div');bg.className='big';bg.textContent=tF(s.air);tp.appendChild(bg);
+    if(s.road!=null){var pc=document.createElement('div');pc.className='cap';pc.textContent='Pavement '+tF(s.road);tp.appendChild(pc)}
+    r.appendChild(b);r.appendChild(m);r.appendChild(tp);fr.appendChild(r)});
+  box.replaceChildren(fr);
+  $('wxall').textContent=S.wxAll?'Show nearest 10':'Show all '+arr.length+' stations';
+}
+
+/* ---------- shared bits ---------- */
+function dist(a,b,c,d){var R=3958.8,r=Math.PI/180,x=Math.sin((c-a)*r/2)*Math.sin((c-a)*r/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)*Math.sin((d-b)*r/2);return 2*R*Math.asin(Math.sqrt(x))}
+function nearestSite(c){var b=null,bd=1e9;sites.forEach(function(s){var d=dist(c.lat,c.lon,s.lat,s.lon);if(d<bd){bd=d;b=s}});return {s:b,d:bd}}
+function noImgText(id){if(Store.list(id).length)return 'Nothing saved for this time yet';return bad[id]?'Camera reports "image currently unavailable"':'No image received yet'}
+/* Put a frame in a .pic box. Only touches the DOM when the image actually changes. */
+function showPic(box,f,c){
+  var im=box.querySelector('img'),none=!f;
+  box.classList.toggle('none',none);box.classList.toggle('wait',none&&Store.list(c.id).length>0);
+  if(none){if(im.dataset.s){im.removeAttribute('src');im.dataset.s=''}return}
+  if(im.dataset.s!==f[1]){var had=!!im.dataset.s;im.dataset.s=f[1];im.src=f[1];
+    if(had&&!reduce){im.classList.remove('flash');void im.offsetWidth;im.classList.add('flash')}}
+  im.alt='Image from '+c.n+' at '+fmt(f[0]);
+}
+function picHTML(extra){return '<div class="pic"><img alt="" decoding="async"'+(extra||'')+'><div class="no"><b>No image</b><span></span></div>'+'<span class="age"></span></div>'}
+function setAge(box,f,id){var a=box.querySelector('.age'),k=f?cls(ref()-f[0]):(Store.list(id).length?'stale':'none'),t=f?ageTxt(ref()-f[0]):(Store.list(id).length?'Not saved yet':'No image');
+  if(a._t!==t){a._t=t;a.textContent=t}a.className='age '+k;
+  var n=box.querySelector('.no span');if(n&&n._t!==id){n._t=id;n.textContent=noImgText(id)}}
+function selectCam(id){S.sel=id;S.follow=false;render()}
+
+/* ---------- Map screen ---------- */
+function renderMarkers(){
+  var top=newest();
+  cams.forEach(function(c){var g=markers[c.id],f=SN[c.id],k=kind(c.id),sel=S.sel===c.id;
+    var isNew=f&&top===c.id&&(ref()-f[0])<120,key=k+'|'+sel+'|'+isNew+'|'+(f?f[0]:0);
+    if(g._k===key)return;g._k=key;
+    g.setAttribute('class','pin f-'+k+(sel?' sel':''));
+    g._pu.style.display=(sel||isNew)&&f?'':'none';
+    g.setAttribute('aria-label',c.n+(f?', updated '+fmt(f[0]):', no image'))});
+}
+var lastDet=null;
+function renderDetail(){
+  var box=$('det-map'),c=S.sel?byId[S.sel]:null;
+  if(!c){if(lastDet!==0){lastDet=0;box.innerHTML='<h2>Select a camera</h2><p class="meta" style="margin:6px 0 0">Click any pin on the map or any name in the list. The image matches the time on the bar below. A red pin with a cross is a camera that is not providing an image.</p>'}return}
+  var f=SN[c.id];
+  if(lastDet!==c.id){lastDet=c.id;var ns=nearestSite(c);
+    box.innerHTML='<h2></h2><div class="meta"></div><div style="height:10px"></div>'+picHTML()+
+     '<dl class="kv"><dt>Updated</dt><dd id="d-up"></dd><dt>Owner</dt><dd id="d-ow"></dd><dt>Position</dt><dd id="d-pos"></dd><dt>Nearest City site</dt><dd id="d-ns"></dd><dt>Road weather</dt><dd id="d-wx"></dd></dl>'+
+     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn" id="d-board">Open on board</button></div>';
+    box.querySelector('h2').textContent=c.n;box.querySelector('.meta').textContent='Camera '+c.id+' on TripCheck';
+    $('d-ow').textContent=c.o;$('d-pos').textContent=c.lat.toFixed(5)+', '+c.lon.toFixed(5)+' (from TripCheck)';
+    $('d-ns').textContent=ns.s.n+', about '+ns.d.toFixed(1)+' mi straight line';
+    $('d-board').onclick=function(){S.follow=false;S.sel=c.id;setScreen('board')}}
+  var pb=box.querySelector('.pic');showPic(pb,f,c);setAge(pb,f,c.id);
+  $('d-up').textContent=f?fmtS(f[0]):'Not yet';$('d-wx').textContent=wxText(c);
+}
+var lastListKey='';
+function renderList(){
+  var arr=cams.slice().sort(function(a,b){var fa=SN[a.id],fb=SN[b.id];return (fb?fb[0]:0)-(fa?fa[0]:0)||a.id-b.id});
+  var key=S.sel+'|'+arr.map(function(c){var f=SN[c.id];return c.id+':'+(f?f[0]:0)+':'+kind(c.id)}).join(',');
+  if(key===lastListKey)return;lastListKey=key;
+  var box=$('camlist'),fr=document.createDocumentFragment();
+  arr.forEach(function(c){var f=SN[c.id],k=kind(c.id),b=document.createElement('button');b.className='row';b.type='button';if(S.sel===c.id)b.setAttribute('aria-current','true');
+    var sw=document.createElement('i');sw.className='sw'+(k==='none'?' red':'');if(k==='none')sw.textContent='\u00d7';else sw.style.background=k==='fresh'?'var(--green)':(k==='aging'?'var(--amber)':'var(--gray)');
+    var t=document.createElement('span');t.className='t';t.textContent=c.s;var a=document.createElement('span');a.className='a'+(k==='none'?' none':'');a.textContent=f?fmt(f[0]):(k==='none'?'No image':'Not yet');
+    b.appendChild(sw);b.appendChild(t);b.appendChild(a);b.onclick=function(){selectCam(c.id)};fr.appendChild(b)});
+  box.replaceChildren(fr);
+}
+
+/* ---------- Board screen ---------- */
+function miniMapSVG(id,big){
+  var s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',BB.join(' '));s.setAttribute('class',big?'minimap':'mm');s.setAttribute('role','img');
+  var u=el('use',{href:'#citysym'},s);u.setAttribute('x',BB[0]);u.setAttribute('y',BB[1]);u.setAttribute('width',BB[2]);u.setAttribute('height',BB[3]);
+  if(big)cams.forEach(function(c){var z=P(c.lon,c.lat);el('circle',{cx:z[0],cy:z[1],r:c.id===id?0:12,fill:byId[c.id]&&!Store.list(c.id).length?'var(--red)':'var(--gray)',opacity:.85},s)});
+  var c=byId[id],z=P(c.lon,c.lat);
+  if(big)el('circle',{cx:z[0],cy:z[1],r:26,fill:'var(--green)',class:'pulse'},s);
+  el('circle',{cx:z[0],cy:z[1],r:big?20:30,fill:'var(--green)',stroke:'var(--ink)','stroke-width':big?6:8},s);
+  return s;
+}
+var lastFeat=null;
+function renderFeat(){
+  var id=S.follow?newest():(S.sel||newest());if(!id)return;
+  if(S.follow)S.sel=id;
+  var c=byId[id],f=SN[id],box=$('feat');
+  if(lastFeat!==id){lastFeat=id;
+    box.innerHTML=picHTML()+'<div class="featinfo"><span class="badge" id="f-badge"></span><h2 id="f-h"></h2><div class="cap" id="f-sub"></div><div class="cap" id="f-wx"></div><svg id="f-mm"></svg><div class="cap">Click the small map to see this camera on the main map.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn alt" id="f-follow"></button></div></div>';
+    $('f-h').textContent=c.n;
+    var mm=miniMapSVG(id,true);mm.id='f-mm';mm.setAttribute('aria-label','Locator map for '+c.n+'. Click to open the main map.');$('f-mm').replaceWith(mm);
+    mm.onclick=function(){S.follow=false;S.sel=id;setScreen('map')};
+    $('f-follow').onclick=function(){S.follow=!S.follow;if(S.follow)S.sel=newest();render()}}
+  var pb=box.querySelector('.pic');showPic(pb,f,c);setAge(pb,f,id);
+  $('f-badge').textContent=S.follow?'Newest upload':'Selected camera';$('f-wx').textContent=wxText(c);
+  $('f-sub').textContent=c.o+' camera. '+(f?'Uploaded '+fmtS(f[0])+'.':noImgText(id)+'.');
+  $('f-follow').textContent=S.follow?'Following newest. Click to hold this camera':'Follow newest upload';
+}
+var lastFilmKey='';
+function renderFilm(){
+  var id=S.sel;if(!id)return;var c=byId[id],arr=Store.list(id),cur=SN[id];
+  $('film-h').textContent='Saved images, '+c.s;
+  var key=id+'|'+(cur?cur[0]:0)+'|'+arr.length+'|'+(arr.length?arr[arr.length-1][0]:0);if(key===lastFilmKey)return;lastFilmKey=key;
+  var box=$('film'),fr=document.createDocumentFragment();
+  for(var i=arr.length-1;i>=0;i--){(function(f){var b=document.createElement('button');b.type='button';b.className='fr';if(cur&&cur[0]===f[0])b.setAttribute('aria-current','true');
+    b.innerHTML='<div class="pic"><img alt="" loading="lazy" decoding="async"></div><span></span>';var im=b.querySelector('img');im.src=f[1];b.querySelector('span').textContent=fmt(f[0]);b.title=fmtS(f[0]);
+    b.onclick=function(){S.play=false;S.cursor=f[0];S.follow=false;S.sel=id;render()};fr.appendChild(b)})(arr[i])}
+  box.replaceChildren(fr);
+  $('film-note').textContent=arr.length?arr.length+' image'+(arr.length===1?'':'s')+' kept for this camera, covering '+(arr.length>1?Math.round((arr[arr.length-1][0]-arr[0][0])/60)+' min':'the latest capture')+'. Older than 3 hours is dropped as new ones arrive.':noImgText(id)+'.';
+  var cr=box.querySelector('[aria-current]');if(cr)box.scrollLeft=cr.offsetLeft-(box.clientWidth-cr.offsetWidth)/2;
+}
+var tiles={},gridOrder='',gridBuilt=false;
+function buildGrid(){
+  var g=$('grid');
+  cams.forEach(function(c){var n=document.createElement('button');n.type='button';n.className='tile';n.dataset.id=c.id;
+    n.innerHTML=picHTML(' loading="lazy"')+'<div class="cp"><div class="tt"><span></span><small></small></div></div>';
+    n.querySelector('.tt span').textContent=c.s;n.querySelector('.cp').appendChild(miniMapSVG(c.id,false));
+    n.onclick=function(){S.follow=false;S.sel=c.id;render();window.scrollTo({top:0,behavior:reduce?'auto':'smooth'})};
+    n._k='';tiles[c.id]=n;g.appendChild(n)});
+  gridBuilt=true;
+}
+function renderGrid(animate){
+  if(!gridBuilt)buildGrid();
+  var g=$('grid'),top=newest();
+  var order=cams.slice().sort(function(a,b){var fa=SN[a.id],fb=SN[b.id];return (fb?fb[0]:0)-(fa?fa[0]:0)||a.id-b.id}).map(function(c){return c.id});
+  var ok=order.join(),moved=ok!==gridOrder,before=null;
+  if(moved&&animate&&gridOrder&&!reduce){before={};cams.forEach(function(c){before[c.id]=tiles[c.id].getBoundingClientRect()})}
+  if(moved){gridOrder=ok;order.forEach(function(id,i){tiles[id].style.order=i})}
+  cams.forEach(function(c){var n=tiles[c.id],f=SN[c.id],k=kind(c.id),
+    key=(f?f[0]:0)+'|'+k+'|'+Math.floor(ref()/20)+'|'+(S.sel===c.id)+'|'+(top===c.id);
+    if(n._k===key)return;n._k=key;
+    n.classList.toggle('newest',top===c.id);n.classList.toggle('isnone',k==='none');
+    if(S.sel===c.id)n.setAttribute('aria-current','true');else n.removeAttribute('aria-current');
+    var pb=n.querySelector('.pic');showPic(pb,f,c);setAge(pb,f,c.id);
+    var sm=n.querySelector('small');sm.className=k==='none'?'none':'';sm.textContent=f?'Uploaded '+fmt(f[0])+' / '+c.o:(k==='none'?'Not providing an image':'Nothing saved for this time yet')});
+  if(before)cams.forEach(function(c){var n=tiles[c.id],a=n.getBoundingClientRect(),b=before[c.id],dx=b.left-a.left,dy=b.top-a.top;
+    if(dx||dy)n.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'none'}],{duration:420,easing:'ease-out'})});
+}
+
+/* ---------- chrome ---------- */
+var justSwitched=false;
+function setScreen(s){
+  if(S.screen===s){render();return}
+  S.screen=s;justSwitched=true;window.scrollTo(0,0);
+  ['map','board','storm','sched'].forEach(function(n){$('s-'+n).hidden=s!==n;$('tab-'+n).setAttribute('aria-selected',s===n)});
+  if(s==='storm')buildStorm();
+  render();justSwitched=false;
+  if(s==='map')requestAnimationFrame(function(){if(!S.sel)fitView()});
+}
+$('tab-map').onclick=function(){setScreen('map')};$('tab-board').onclick=function(){setScreen('board')};$('tab-storm').onclick=function(){setScreen('storm')};$('tab-sched').onclick=function(){setScreen('sched')};
+function renderTime(){
+  var sl=$('slider');sl.min=B.min;sl.max=B.max;sl.value=Math.max(B.min,Math.min(B.max,S.cursor));
+  $('t-start').textContent=B.max?fmt(B.min):'';$('t-end').textContent=B.max?fmt(B.max)+' (latest)':'';
+  $('t-now').textContent=B.max?fmtS(S.cursor):'';
+  $('b-play').textContent=S.play?'Pause':'Play';
+  var cm=camMax(),live=atLatest(),stale=live&&(ref()-cm)>600;
+  $('modetxt').textContent=S.play?'Replaying':(stale?(cm?'Cameras not live. Last capture '+fmt(cm):'Waiting for the first collection'):(live?'Showing latest':'Paused in history'));
+  $('livedot').className='dot'+(S.play||(live&&!stale)?' live':'');
+  $('livedot').style.background=stale&&!S.play?'var(--amber)':'';
+}
+function renderBanner(){
+  var none=cams.filter(function(c){return !Store.list(c.id).length}),p=$('proto'),e=evalSched(SCH,Date.now()),fa=S.feedAsof,age=fa?Date.now()/1000-fa:null,t;
+  p.textContent='';
+  if(!S.loaded)t='No collection has been published yet. Open the Schedule screen to start one.';
+  else{t='Last collected '+fmt(fa)+' ('+ageTxt(age)+'). ';
+    t+=e.act?'Collecting now until '+fmtD(e.act.end)+'. This page checks every 5 minutes.':(e.nxt?'Not collecting. Next storm window starts '+fmtD(e.nxt.start)+'.':'Not collecting. No storm window is scheduled.');
+    if(e.act&&age>900)t+=' The collector is running late.'}
+  p.appendChild(document.createTextNode(t));
+  if(S.loaded&&none.length){var b=document.createElement('b');b.textContent=' Not providing an image: '+none.map(function(c){return c.s}).join('; ')+'.';p.appendChild(b)}
+}
+var raf=0;
+function schedule(){if(!raf)raf=requestAnimationFrame(function(){raf=0;render()})}
+function render(){
+  snapshot();renderTime();renderWxPill();renderSchPill();
+  if(S.screen==='map'){renderMarkers();renderMapWx();renderDetail();renderList()}
+  else if(S.screen==='board'){renderFeat();renderFilm();renderGrid(!justSwitched)}
+  else if(S.screen==='storm')renderStorm();
+  else renderSched();
+  S.sig=sigOf();
+}
+$('slider').addEventListener('input',function(e){S.play=false;S.cursor=Number(e.target.value);preloadAll();schedule()});
+$('b-play').onclick=function(){if(atLatest())S.cursor=B.min;S.play=!S.play;S.last=0;preloadAll();render();if(S.play)startLoop()};
+$('b-live').onclick=function(){S.play=false;S.cursor=B.max;S.follow=true;render()};
+$('sel-speed').onchange=function(e){S.speed=Number(e.target.value)};
+$('b-labels').onclick=function(){S.labels=!S.labels;this.setAttribute('aria-pressed',S.labels);svg.classList.toggle('labels',S.labels)};
+function setTile(v){S.tile=v;$('grid').style.setProperty('--tile',v+'px');Array.prototype.forEach.call(document.querySelectorAll('#tileseg button'),function(b){b.setAttribute('aria-pressed',Number(b.dataset.t)===v)})}
+Array.prototype.forEach.call(document.querySelectorAll('#tileseg button'),function(b){b.onclick=function(){setTile(Number(b.dataset.t))}});
+var tileBeforeTV=320;
+$('b-tv').onclick=function(){S.tv=!S.tv;this.setAttribute('aria-pressed',S.tv);document.body.classList.toggle('tv',S.tv);
+  if(S.tv){tileBeforeTV=S.tile;setTile(480);S.follow=true;S.play=true;S.cursor=B.min;preloadAll();setScreen('board');startLoop()}else{setTile(tileBeforeTV);render()}};
+
+/* Replay loop runs only while playing. Otherwise nothing runs between events. */
+var looping=false;
+function startLoop(){if(looping)return;looping=true;S.last=0;requestAnimationFrame(tick)}
+function tick(ts){
+  if(!S.play){looping=false;return}
+  if(!S.last)S.last=ts;var dt=Math.min(.25,(ts-S.last)/1000);S.last=ts;
+  S.cursor+=dt*S.speed;
+  if(S.cursor>=B.max){S.cursor=B.max;
+    if(S.tv){S.loopHold+=dt;if(S.loopHold>5){S.loopHold=0;S.cursor=B.min}}else{S.play=false}}
+  snapshot();
+  var sg=sigOf();if(sg!==S.sig){render()}else renderTime();
+  requestAnimationFrame(tick);
+}
+/* Preload every saved image once, only when someone scrubs or plays, so replay never waits on the network. */
+var preloaded=false;
+function preloadAll(){if(preloaded)return;preloaded=true;Store.list('radar').forEach(function(f){var im=new Image();im.src=f[1]});cams.forEach(function(c){Store.list(c.id).forEach(function(f){var im=new Image();im.decoding='async';im.src=f[1]})})}
+
+/* Ages tick forward every 20 s even when nothing else changes. */
+setInterval(function(){if(document.hidden||S.play)return;snapshot();if(sigOf()!==S.sig)render()},20000);
+setInterval(poll,POLL_MS);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&Date.now()/1000-S.checked>POLL_MS/1000){poll()}else if(!document.hidden)schedule()});
+window.addEventListener('resize',function(){if(S.screen==='map'&&!S.sel)fitView()});
+
+/* ---------- Schedule: storm collection windows ---------- */
+var SCH={version:1,watch_hourly:false,windows:[]},schBuilt=false,schKey='',schBusy=false;
+var DFMT=new Intl.DateTimeFormat('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:TZ});
+function fmtD(sec){return DFMT.format(sec*1000)}
+function durTxt(sec){sec=Math.max(0,Math.round(sec/60));var d=Math.floor(sec/1440),h=Math.floor(sec%1440/60),m=sec%60;return d?d+' d '+h+' h':(h?h+' h '+m+' min':m+' min')}
+function evalSched(s,nowMs){var now=nowMs/1000,act=null,nxt=null;
+  (s.windows||[]).forEach(function(w){var st=Date.parse(w.start)/1000,en=st+Number(w.hours)*3600;if(isNaN(st)||isNaN(en))return;
+    if(st<=now&&now<en){if(!act||en>act.end)act={w:w,start:st,end:en}}
+    else if(st>now&&(!nxt||st<nxt.start))nxt={w:w,start:st,end:en}});
+  return {act:act,nxt:nxt}}
+function pacParts(ms){var o={};new Intl.DateTimeFormat('en-US',{timeZone:TZ,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(ms).forEach(function(x){o[x.type]=+x.value});return {y:o.year,mo:o.month-1,d:o.day,h:o.hour,mi:o.minute}}
+function pacToMs(v){var m=/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(v);if(!m)return NaN;var y=+m[1],mo=+m[2]-1,d=+m[3],h=+m[4],mi=+m[5],want=Date.UTC(y,mo,d,h,mi),g=want;
+  for(var i=0;i<3;i++){var p=pacParts(g);g+=want-Date.UTC(p.y,p.mo,p.d,p.h,p.mi)}return g}
+function pacInput(ms){var p=pacParts(ms),z=function(n){return (n<10?'0':'')+n};return p.y+'-'+z(p.mo+1)+'-'+z(p.d)+'T'+z(p.h)+':'+z(p.mi)}
+function iso(ms){return new Date(ms).toISOString().replace(/\.\d+Z$/,'Z')}
+var REPO=(function(){try{var h=location.hostname;if(/\.github\.io$/.test(h))return {o:h.split('.')[0],r:location.pathname.split('/')[1]||''};var m=(localStorage.getItem('hc_repo')||'').split('/');if(m.length===2&&m[0]&&m[1])return {o:m[0],r:m[1]}}catch(e){}return null})();
+function tokGet(){try{return localStorage.getItem('hc_token')||''}catch(e){return ''}}
+function tokSet(v){try{if(v)localStorage.setItem('hc_token',v);else localStorage.removeItem('hc_token')}catch(e){}}
+function gh(path,opt){opt=opt||{};var h={'Accept':'application/vnd.github+json','Authorization':'Bearer '+tokGet(),'X-GitHub-Api-Version':'2022-11-28'};if(opt.body)h['Content-Type']='application/json';
+  return fetch('https://api.github.com/repos/'+REPO.o+'/'+REPO.r+path,{method:opt.method||'GET',headers:h,body:opt.body}).then(function(r){
+    return r.text().then(function(x){var j={};try{j=x?JSON.parse(x):{}}catch(e){}if(!r.ok){var er=new Error(j.message||('HTTP '+r.status));er.status=r.status;throw er}return j})})}
+function b64d(s){return decodeURIComponent(escape(atob(s.replace(/\s/g,''))))}
+function b64e(s){return btoa(unescape(encodeURIComponent(s)))}
+function prune(s){var cut=Date.now()/1000-7*86400;s.windows=(s.windows||[]).filter(function(w){return !(Date.parse(w.start)/1000+Number(w.hours)*3600<cut)})}
+/* Read the saved file, apply one change, save it back. If someone else saved in between, read again and redo. */
+function mutate(fn,msg,attempt){attempt=attempt||0;
+  return gh('/contents/schedule.json?ref=main').then(function(j){var cur;try{cur=JSON.parse(b64d(j.content))}catch(e){cur={version:1,watch_hourly:false,windows:[]}}
+    var nx=fn(JSON.parse(JSON.stringify(cur)));nx.version=1;prune(nx);
+    return gh('/contents/schedule.json',{method:'PUT',body:JSON.stringify({message:msg,content:b64e(JSON.stringify(nx,null,1)+'\n'),sha:j.sha,branch:'main'})}).then(function(){SCH=nx;schKey='';return nx},function(e){if((e.status===409||e.status===422)&&attempt<2)return mutate(fn,msg,attempt+1);throw e})})}
+function dispatchRun(){return gh('/actions/workflows/collect.yml/dispatches',{method:'POST',body:JSON.stringify({ref:'main'})})}
+function loadSchedule(){
+  var urls=[];if(REPO)urls.push('https://raw.githubusercontent.com/'+REPO.o+'/'+REPO.r+'/main/schedule.json');urls.push('schedule.json');
+  (function next(i){if(i>=urls.length)return;fetch(urls[i]+'?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(function(j){SCH=j;schKey='';renderSchPill();renderBanner();if(S.screen==='sched')renderSched()}).catch(function(){next(i+1)})})(0)}
+function renderSchPill(){var e=evalSched(SCH,Date.now()),p=$('schpill');
+  p.textContent=e.act?'Collecting until '+fmtD(e.act.end):(e.nxt?'Starts '+fmtD(e.nxt.start):'Not collecting');
+  p.style.background=e.act?'var(--green)':'';p.style.color=e.act?'#10260a':''}
+function winState(w,now){var st=Date.parse(w.start)/1000,en=st+Number(w.hours)*3600;return st<=now&&now<en?'active':(st>now?'upcoming':'ended')}
+function buildSched(){schBuilt=true;
+  var at=$('sch-at');at.value=pacInput(Date.now()+3600000);
+  Array.prototype.forEach.call(document.getElementsByName('sch-when'),function(r){r.onchange=function(){at.disabled=document.querySelector('input[name=sch-when]:checked').value!=='at'}});
+  Array.prototype.forEach.call(document.querySelectorAll('#sch-chips button'),function(b){b.onclick=function(){$('sch-hours').value=b.dataset.h;chips()}});
+  function chips(){var v=$('sch-hours').value;Array.prototype.forEach.call(document.querySelectorAll('#sch-chips button'),function(b){b.setAttribute('aria-pressed',b.dataset.h===String(v))})}
+  $('sch-hours').oninput=chips;
+  $('sch-watch').onchange=function(){var on=this.checked;if(!tokGet()){this.checked=!on;msg('Connect GitHub below first, then this can be saved.');return}busy(true);mutate(function(s){s.watch_hourly=on;return s},'Hourly snapshot '+(on?'on':'off')).then(function(){msg('Saved.')},fail).then(function(){busy(false)})};
+  $('sch-go').onclick=function(){
+    var hrs=Number($('sch-hours').value),mode=document.querySelector('input[name=sch-when]:checked').value,now=Math.floor(Date.now()/60000)*60000,st=mode==='now'?now:pacToMs($('sch-at').value);
+    if(!(hrs>=1&&hrs<=168)){msg('Hours must be between 1 and 168.');return}
+    if(isNaN(st)){msg('Pick a start date and time.');return}
+    if(mode==='at'&&st<now-300000){msg('That start time has already passed. Choose a later time or Right now.');return}
+    if(!tokGet()||!REPO){msg('Connect GitHub below first. Nothing was saved.');return}
+    busy(true);msg('Saving...');
+    mutate(function(s){s.windows.push({id:'w'+Date.now().toString(36),start:iso(st),hours:hrs,label:$('sch-label').value.trim()});return s},'Add storm window').then(function(){
+      msg('Saved. '+(mode==='now'?'Starting a collection now.':'Collection starts '+fmtD(st/1000)+'.'));
+      if(mode==='now'||st-now<5.5*3600000)return dispatchRun().then(function(){msg(mode==='now'?'Saved. Collection is starting now. Images appear in about a minute.':'Saved. A collector is now waiting and will start at '+fmtD(st/1000)+'.')},function(){msg('Saved. The collector could not be started from here. Open the Actions tab on GitHub and press Run workflow.')});
+      msg('Saved. Collection starts '+fmtD(st/1000)+'. Open this page and press Start within 5 hours of then if the timer has not begun it.')},fail).then(function(){busy(false);schedule()})};
+  conn();
+}
+function msg(t){$('sch-msg').textContent=t}
+function busy(b){schBusy=b;$('sch-go').disabled=b}
+function fail(e){msg(e&&e.status===401?'GitHub refused the token. Check it in the box below.':(e&&e.status===403?'The token is not allowed to do that. It needs Contents and Actions write access to this repository.':'Could not save: '+(e&&e.message||'unknown error')))}
+function conn(){var box=$('sch-conn'),have=!!tokGet();box.replaceChildren();
+  var h=document.createElement('h2');h.textContent='Connection to GitHub';box.appendChild(h);
+  var p=document.createElement('p');p.className='cap';p.style.margin='4px 0 8px';
+  p.textContent=have?'A token is saved in this browser. It lets this page save the schedule and start a run.':'This page can only save a schedule when it holds a token. Anyone can look at the page; only a token lets someone change it. Keep the token on your own computer, not on crew phones.';box.appendChild(p);
+  if(!REPO){var l=document.createElement('label');l.className='opt';l.textContent='Repository (owner/name) ';var i=document.createElement('input');i.type='text';i.id='sch-repo';i.placeholder='owner/name';l.appendChild(i);box.appendChild(l)}
+  var tl=document.createElement('label');tl.className='opt';tl.style.display='block';tl.textContent='Token ';var ti=document.createElement('input');ti.type='password';ti.id='sch-token';ti.placeholder=have?'Saved (hidden)':'Paste token';ti.autocomplete='off';ti.style.width='100%';ti.style.maxWidth='340px';tl.appendChild(ti);box.appendChild(tl);
+  var row=document.createElement('div');row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:8px 0';
+  var sv=document.createElement('button');sv.className='btn';sv.textContent='Save and test';var fg=document.createElement('button');fg.className='btn alt';fg.textContent='Forget token';row.appendChild(sv);row.appendChild(fg);box.appendChild(row);
+  var st=document.createElement('div');st.className='cap';st.setAttribute('role','status');box.appendChild(st);
+  sv.onclick=function(){try{if(!REPO){var rv=($('sch-repo').value||'').trim().split('/');if(rv.length!==2||!rv[0]||!rv[1]){st.textContent='Enter the repository as owner/name.';return}localStorage.setItem('hc_repo',rv.join('/'));REPO={o:rv[0],r:rv[1]}}}catch(e){}
+    var v=ti.value.trim();if(v)tokSet(v);if(!tokGet()){st.textContent='Paste a token first.';return}
+    st.textContent='Testing...';gh('').then(function(j){st.textContent=j.permissions&&j.permissions.push?'Connected. This token can save the schedule.':'Connected, but this token can only read. It needs Contents write access.';ti.value='';schKey='';renderSched()},function(e){st.textContent=e.status===401?'GitHub refused that token.':'Could not reach the repository: '+e.message})};
+  fg.onclick=function(){tokSet('');st.textContent='Token removed from this browser.';conn()};
+  var d=document.createElement('details');var sm=document.createElement('summary');sm.textContent='How to make a token';d.appendChild(sm);
+  var ol=document.createElement('ol');['On GitHub open Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token.','Repository access: Only select repositories, then choose this repository.','Permissions: Contents set to Read and write, and Actions set to Read and write. Nothing else.','Set an expiry (90 days is fine), generate it, and paste it above.'].forEach(function(x){var li=document.createElement('li');li.textContent=x;ol.appendChild(li)});d.appendChild(ol);box.appendChild(d);
+}
+function renderSched(){
+  if(!schBuilt)buildSched();
+  var now=Date.now()/1000,e=evalSched(SCH,Date.now()),fa=S.feedAsof,age=fa?now-fa:null;
+  var key=[JSON.stringify(SCH),Math.floor(now/30),fa,tokGet()?1:0,S.loaded].join('|');if(key===schKey)return;schKey=key;
+  var box=$('sch-status');box.replaceChildren();
+  var big=document.createElement('div');big.className='stbig'+(e.act?' on':'');big.textContent=e.act?'Collecting now':(e.nxt?'Waiting for the next storm window':'Not collecting');box.appendChild(big);
+  var d=document.createElement('div');d.style.marginTop='4px';
+  d.textContent=e.act?'Window ends '+fmtD(e.act.end)+', in '+durTxt(e.act.end-now)+'.':(e.nxt?'Starts '+fmtD(e.nxt.start)+', in '+durTxt(e.nxt.start-now)+'. It runs '+durTxt(e.nxt.end-e.nxt.start)+'.':'No storm window is scheduled. Start one on this screen.');box.appendChild(d);
+  var h=document.createElement('div');h.className='cap';h.style.marginTop='8px';
+  h.textContent=fa?'Last collection '+fmtD(fa)+' ('+ageTxt(age)+').':'No collection has run yet.';box.appendChild(h);
+  if(e.act&&(!fa||age>900)){var w=document.createElement('div');w.className='warn';w.style.marginTop='6px';w.textContent=fa?'No new collection for '+durTxt(age)+'. GitHub can run late. If this continues, check the Actions tab on GitHub.':'A window is open but nothing has been collected yet. The first run starts within about 10 minutes.';box.appendChild(w)}
+  if(SCH.watch_hourly&&!e.act){var wn=document.createElement('div');wn.className='cap';wn.textContent='Hourly snapshots are on while no window is open.';box.appendChild(wn)}
+  $('sch-watch').checked=!!SCH.watch_hourly;
+  var list=$('sch-list');list.replaceChildren();var ws=(SCH.windows||[]).slice().sort(function(a,b){return Date.parse(b.start)-Date.parse(a.start)});
+  if(!ws.length){var em=document.createElement('p');em.className='cap';em.textContent='Nothing scheduled yet.';list.appendChild(em)}
+  ws.forEach(function(w){var s=winState(w,now),st=Date.parse(w.start)/1000,en=st+Number(w.hours)*3600,row=document.createElement('div');row.className='win';
+    var l=document.createElement('div'),t=document.createElement('span');t.className='wt';t.textContent=w.label||'Storm window';var tg=document.createElement('span');tg.className='tag '+s;tg.textContent=s==='active'?'Active':(s==='upcoming'?'Upcoming':'Ended');t.appendChild(tg);l.appendChild(t);
+    var c=document.createElement('div');c.className='cap';c.textContent=fmtD(st)+' to '+fmtD(en)+' ('+durTxt(en-st)+')';l.appendChild(c);row.appendChild(l);
+    if(s!=='ended'){var b=document.createElement('button');b.className='btn alt';b.textContent=s==='active'?'Stop now':'Cancel';b.disabled=!tokGet();b.title=tokGet()?'':'Connect GitHub first';
+      b.onclick=function(){busy(true);msg('Saving...');mutate(function(x){x.windows=x.windows.filter(function(q){if(q.id!==w.id)return true;var ss=Date.parse(q.start);var el=(Date.now()-ss)/3600000;if(el<0.02)return false;q.hours=Math.round((el-0.0002)*10000)/10000;return true});return x},(s==='active'?'Stop':'Cancel')+' storm window').then(function(){msg(s==='active'?'Stopped. No more collections will run.':'Cancelled.')},fail).then(function(){busy(false);schedule()})};row.appendChild(b)}
+    list.appendChild(row)});
+}
+
+/* open: draw the map, show newest image of every camera first, then check the feed */
+buildMap();
+cams.forEach(function(c){var f=Store.at(c.id,B.max);if(f){var im=new Image();im.decoding='async';im.src=f[1]}});
+Store.list('radar').forEach(function(f){var im=new Image();im.src=f[1]});
+function pressed(id,v){$(id).setAttribute('aria-pressed',v)}
+$('lay-mtemp').onclick=function(){S.mapTemps=!S.mapTemps;pressed('lay-mtemp',S.mapTemps);drawMapChips()};
+$('lay-mrad').onclick=function(){S.mapRadar=!S.mapRadar;pressed('lay-mrad',S.mapRadar);renderMapWx()};
+$('lay-radar').onclick=function(){S.l.radar=!S.l.radar;pressed('lay-radar',S.l.radar);schedule()};
+$('lay-temps').onclick=function(){S.l.temps=!S.l.temps;pressed('lay-temps',S.l.temps);sDirty=true;schedule()};
+$('lay-cams').onclick=function(){S.l.cams=!S.l.cams;pressed('lay-cams',S.l.cams);schedule()};
+Array.prototype.forEach.call(document.querySelectorAll('#viewseg button'),function(b){b.onclick=function(){setSView(b.dataset.v)}});
+Array.prototype.forEach.call(document.querySelectorAll('#wxsort button'),function(b){b.onclick=function(){S.wxSort=b.dataset.s;Array.prototype.forEach.call(document.querySelectorAll('#wxsort button'),function(x){x.setAttribute('aria-pressed',x===b)});wxKey='';schedule()}});
+$('wxall').onclick=function(){S.wxAll=!S.wxAll;wxKey='';schedule()};
+render();renderBanner();
+poll();
+window.HillsboroCams={addFrame:addFrame,Store:Store,render:render};
+})();
+</script>
+
+</body></html>
