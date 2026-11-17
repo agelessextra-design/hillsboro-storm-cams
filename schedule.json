@@ -3,16 +3,10 @@
  "watch_hourly": false,
  "windows": [
   {
-   "id": "first-test",
-   "start": "2026-11-03T19:34:00Z",
-   "hours": 1,
-   "label": "First test run"
-  },
-  {
-   "id": "wmw1485og",
-   "start": "2026-11-03T20:03:00Z",
+   "id": "wmwl22096",
+   "start": "2026-11-17T18:58:00Z",
    "hours": 48,
-   "label": "Test event"
+   "label": ""
   }
  ]
 }
