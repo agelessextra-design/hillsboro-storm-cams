@@ -1,0 +1,12 @@
+{
+ "version": 1,
+ "watch_hourly": false,
+ "windows": [
+  {
+   "id": "wmwl22096",
+   "start": "2026-11-17T18:58:00Z",
+   "hours": 48,
+   "label": ""
+  }
+ ]
+}
